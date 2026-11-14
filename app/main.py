@@ -37,9 +37,12 @@ HOP_BY_HOP = {
     "connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailer",
     "transfer-encoding", "upgrade", "host", "content-length",
 }  # fmt: skip
-# Cabeceras de la petición que no se reenvían (auth del proxy, cabeceras de Traefik/Cloudflare, IP del cliente).
-DROP_REQUEST = HOP_BY_HOP | {"authorization", "accept-encoding", "forwarded", "x-real-ip", "cdn-loop"}
-DROP_REQUEST_PREFIX = ("x-forwarded-", "cf-")
+# Cabeceras de la petición que se reenvían a theCrag. El resto no: ni las del túnel/Traefik (IP y país del cliente,
+# cf-*, x-forwarded-*) ni las de navegador (sec-ch-*, sec-fetch-*), que no cuadran con un cliente HTTP de servidor.
+FORWARD_REQUEST = {
+    "user-agent", "accept", "accept-language", "cookie", "referer", "origin", "content-type",
+    "x-requested-with", "if-none-match", "if-modified-since", "range", "cache-control", "pragma",
+}  # fmt: skip
 DROP_RESPONSE = HOP_BY_HOP | {"content-encoding", "date", "server", "set-cookie", "report-to", "nel", "alt-svc", "strict-transport-security"}
 TEXT_TYPES = ("text/", "application/json", "application/javascript", "application/x-javascript", "+json", "+xml")
 
@@ -89,7 +92,7 @@ def _request_headers(request: Request, origin: str) -> dict[str, str]:
     headers = {}
     for k, v in request.headers.items():
         lk = k.lower()
-        if lk in DROP_REQUEST or lk.startswith(DROP_REQUEST_PREFIX):
+        if lk not in FORWARD_REQUEST:
             continue
         if lk == "cookie":
             v = "; ".join(c for c in v.split("; ") if not c.startswith(AUTH_COOKIE + "="))
