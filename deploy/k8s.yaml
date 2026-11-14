@@ -1,0 +1,118 @@
+# Despliegue en el k3s de Oracle (oracle-frankfurt-nixos-*).
+#   KUBE_ADMIN=1 kubectl --context oracle-frankfurt-nixos-ts apply -f deploy/k8s.yaml
+# Nueva versión: KUBE_ADMIN=1 kubectl ... -n thecrag-proxy rollout restart deploy/thecrag-proxy
+#
+# La contraseña del proxy va en el Secret thecrag-proxy (no está en el repo; ver README): PROXY_PASSWORD.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: thecrag-proxy
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thecrag-proxy
+  namespace: thecrag-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: thecrag-proxy
+  template:
+    metadata:
+      labels:
+        app: thecrag-proxy
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+      containers:
+        - name: app
+          image: ghcr.io/adrianlzt/thecrag-proxy:main
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: thecrag-proxy
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: thecrag-proxy
+  namespace: thecrag-proxy
+spec:
+  selector:
+    app: thecrag-proxy
+  ports:
+    - port: 80
+      targetPort: 8000
+---
+# Un Ingress por dominio para que cada uno tenga su certificado: si el DNS de uno no está aún, el otro funciona.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: thecrag-proxy
+  namespace: thecrag-proxy
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: thecrag.adrianlzt.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: thecrag-proxy
+                port:
+                  number: 80
+  tls:
+    - hosts: [thecrag.adrianlzt.com]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: thecrag-proxy-k8s
+  namespace: thecrag-proxy
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: thecrag.k8s.adrianlzt.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: thecrag-proxy
+                port:
+                  number: 80
+  tls:
+    - hosts: [thecrag.k8s.adrianlzt.com]
