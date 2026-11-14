@@ -1,0 +1,16 @@
+# Proxy en arc2 (servicio de usuario), publicado por el túnel de Cloudflare (cloudflared.service) como
+# thecrag.adrianlzt.com -> http://localhost:8471. theCrag bloquea la IP de Oracle, no la de casa.
+#   cp deploy/thecrag-proxy.service ~/.config/systemd/user/ && systemctl --user daemon-reload
+#   systemctl --user enable --now thecrag-proxy
+[Unit]
+Description=Proxy de theCrag con grados en escala francesa (puerto 8471, publicado por cloudflared)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/Documentos/escalada/thecrag-proxy
+ExecStart=/usr/bin/uv run --frozen --no-dev uvicorn app.main:app --host 127.0.0.1 --port 8471 --proxy-headers --forwarded-allow-ips 127.0.0.1 --no-server-header
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

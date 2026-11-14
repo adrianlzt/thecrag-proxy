@@ -43,7 +43,20 @@ PROXY_PASSWORD=prueba uv run uvicorn app.main:app --port 8471   # http://localho
 
 Sin `PROXY_PASSWORD` no pide contraseña.
 
-## Despliegue (k3s de Oracle)
+## Despliegue en arc2 (el que se usa)
+
+theCrag (su WAF de Cloudflare) bloqueó la IP de Oracle a las pocas horas; desde casa (arc2) no. Así que el proxy
+corre en arc2 como servicio de usuario (`deploy/thecrag-proxy.service`, `127.0.0.1:8471`, sin contraseña) y se
+publica por el túnel de Cloudflare de arc2 (`cloudflared.service`, gestionado desde el panel de Zero Trust):
+hostname público `thecrag.adrianlzt.com` → `http://localhost:8471`.
+
+```sh
+cp deploy/thecrag-proxy.service ~/.config/systemd/user/ && systemctl --user daemon-reload
+systemctl --user enable --now thecrag-proxy
+git pull && systemctl --user restart thecrag-proxy   # nueva versión
+```
+
+## Despliegue (k3s de Oracle, bloqueado por theCrag)
 
 - Cada push a `main` pasa los tests y publica `ghcr.io/adrianlzt/thecrag-proxy:{main,<sha>}` (arm64) con
   `.github/workflows/image.yml`.
@@ -52,5 +65,5 @@ Sin `PROXY_PASSWORD` no pide contraseña.
 - Manifiestos en `deploy/k8s.yaml` (namespace `thecrag-proxy`, Traefik + Let's Encrypt, un Ingress por dominio):
   `KUBE_ADMIN=1 kubectl --context oracle-frankfurt-nixos-ts apply -f deploy/k8s.yaml`
 - Nueva versión: `KUBE_ADMIN=1 kubectl --context oracle-frankfurt-nixos-ts -n thecrag-proxy rollout restart deploy/thecrag-proxy`
-- DNS (Cloudflare, zona `adrianlzt.com`): `thecrag` registro A a `79.76.123.62` **sin proxy de Cloudflare** (el
-  certificado lo saca Traefik con TLS-ALPN). `thecrag.k8s` ya va por el comodín `*.k8s`.
+- `thecrag.k8s.adrianlzt.com` va por el comodín `*.k8s`. El Ingress de `thecrag.adrianlzt.com` sobra mientras ese
+  nombre vaya por el túnel de arc2.
