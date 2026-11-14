@@ -2,7 +2,7 @@
 #   KUBE_ADMIN=1 kubectl --context oracle-frankfurt-nixos-ts apply -f deploy/k8s.yaml
 # Nueva versión: KUBE_ADMIN=1 kubectl ... -n thecrag-proxy rollout restart deploy/thecrag-proxy
 #
-# La contraseña del proxy va en el Secret thecrag-proxy (no está en el repo; ver README): PROXY_PASSWORD.
+# Sin contraseña (PROXY_PASSWORD sin poner). Para pedirla, añadir un envFrom con un Secret que la tenga (ver README).
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -33,9 +33,6 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
-          envFrom:
-            - secretRef:
-                name: thecrag-proxy
           readinessProbe:
             httpGet:
               path: /healthz

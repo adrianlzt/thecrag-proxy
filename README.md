@@ -25,9 +25,9 @@ Ejemplo: https://thecrag.adrianlzt.com/en/climbing/united-states/red-river-gorge
   JS y CSS; también `Location`, y `Set-Cookie` pierde el `Domain=` para quedarse en el dominio del proxy. Hacia
   arriba se hace lo contrario con `Referer`, `Origin`, query y cuerpos de formularios. CSS, JS e imágenes vienen de
   `static.thecrag.com`/`image.thecrag.com` directamente.
-- **No es un proxy abierto**: solo habla con `www.thecrag.com`, pide contraseña (autenticación básica la primera
-  vez; luego cookie `tcproxy_auth` de un año), responde `X-Robots-Tag: noindex` y `robots.txt` con `Disallow: /`, y
-  limita a 6 peticiones simultáneas a theCrag (`MAX_CONCURRENCY`).
+- **No indexable**: solo habla con `www.thecrag.com`, responde `X-Robots-Tag: noindex` y `robots.txt` con
+  `Disallow: /`, y limita a 6 peticiones simultáneas a theCrag (`MAX_CONCURRENCY`). En producción va sin contraseña;
+  con `PROXY_PASSWORD` pide autenticación básica la primera vez (luego cookie `tcproxy_auth` de un año).
 
 Limitaciones: solo YDS y V (UIAA, británico, Ewbank… se quedan como estén); el contenido que el JS de theCrag pinte
 a partir de JSON sin pasar por el HTML seguirá en el sistema original; el login con Google/Facebook vuelve a
@@ -47,8 +47,8 @@ Sin `PROXY_PASSWORD` no pide contraseña.
 
 - Cada push a `main` pasa los tests y publica `ghcr.io/adrianlzt/thecrag-proxy:{main,<sha>}` (arm64) con
   `.github/workflows/image.yml`.
-- Contraseña en gopass `thecrag-proxy/auth` (usuario cualquiera). Secret:
-  `KUBE_ADMIN=1 kubectl --context oracle-frankfurt-nixos-ts -n thecrag-proxy create secret generic thecrag-proxy --from-literal=PROXY_PASSWORD="$(gopass show -o thecrag-proxy/auth)"`
+- Sin contraseña. Para volver a ponerla: hay un Secret `thecrag-proxy` con `PROXY_PASSWORD` (gopass
+  `thecrag-proxy/auth`); basta con añadir al contenedor `envFrom: [{secretRef: {name: thecrag-proxy}}]`.
 - Manifiestos en `deploy/k8s.yaml` (namespace `thecrag-proxy`, Traefik + Let's Encrypt, un Ingress por dominio):
   `KUBE_ADMIN=1 kubectl --context oracle-frankfurt-nixos-ts apply -f deploy/k8s.yaml`
 - Nueva versión: `KUBE_ADMIN=1 kubectl --context oracle-frankfurt-nixos-ts -n thecrag-proxy rollout restart deploy/thecrag-proxy`
