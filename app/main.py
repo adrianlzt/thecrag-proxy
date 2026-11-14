@@ -33,6 +33,40 @@ MAX_CONCURRENCY = int(os.environ.get("MAX_CONCURRENCY", "6"))
 AUTH_COOKIE = "tcproxy_auth"
 ROBOTS = "noindex, nofollow, noarchive, nosnippet"
 
+# El WAF de theCrag (Cloudflare) bloquea a los clientes que no parecen un navegador. Con el user-agent de httpx o de
+# curl devuelve 403 «You are unable to access»; con uno de Chrome o Firefox, 200. El que manda el navegador del
+# cliente se respeta (el del proxy solo sustituye al de un cliente HTTP); THE_CRAG_UA cambia el de por defecto.
+USER_AGENT = os.environ.get(
+    "THE_CRAG_UA",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+)
+# Cabeceras que completa el proxy cuando el cliente no las manda (o manda las de un cliente HTTP): sin unas
+# Accept/Accept-Language de navegador el WAF también bloquea, aunque el user-agent sea bueno.
+BROWSER_HEADERS = {
+    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "accept-language": "es-ES,es;q=0.9,en;q=0.8",
+}
+# httpx pone en minúscula los nombres de cabecera y con eso el WAF devuelve 403 aunque los valores sean de Chrome:
+# http/1.1 los distingue (HTTP/2 los normaliza, por eso con h2 el case da igual). Aquí se les devuelve la grafía de
+# un navegador; las que no estén en la lista caen en `_header_name`, que las capitaliza igual.
+HEADER_CASE = {
+    b"accept": b"Accept",
+    b"accept-encoding": b"Accept-Encoding",
+    b"accept-language": b"Accept-Language",
+    b"connection": b"Connection",
+    b"content-length": b"Content-Length",
+    b"content-type": b"Content-Type",
+    b"cookie": b"Cookie",
+    b"host": b"Host",
+    b"if-modified-since": b"If-Modified-Since",
+    b"if-none-match": b"If-None-Match",
+    b"origin": b"Origin",
+    b"pragma": b"Pragma",
+    b"referer": b"Referer",
+    b"user-agent": b"User-Agent",
+    b"x-requested-with": b"X-Requested-With",
+}
+
 HOP_BY_HOP = {
     "connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailer",
     "transfer-encoding", "upgrade", "host", "content-length",
@@ -88,6 +122,11 @@ def to_upstream(text: str, origin: str) -> str:
     return text.replace(origin, UPSTREAM).replace(quote(origin, safe=""), quote(UPSTREAM, safe=""))
 
 
+def _header_name(name: str) -> str:
+    """`accept-encoding` → `Accept-Encoding`: la grafía que escribe un navegador y que el WAF de theCrag exige."""
+    return HEADER_CASE.get(name.encode(), b"-".join(p.capitalize() for p in name.encode().split(b"-"))).decode()
+
+
 def _request_headers(request: Request, origin: str) -> dict[str, str]:
     headers = {}
     for k, v in request.headers.items():
@@ -100,9 +139,19 @@ def _request_headers(request: Request, origin: str) -> dict[str, str]:
                 continue
         elif lk in ("origin", "referer"):
             v = to_upstream(v, origin)
-        headers[k] = v
-    headers["accept-encoding"] = "gzip"
-    return headers
+        headers[lk] = v
+    # El cliente puede ser otro cliente HTTP (curl, un test, el navegador con una extensión): se completa lo que
+    # espere un navegador, sin pisar lo que sí haya mandado.
+    for k, v in BROWSER_HEADERS.items():
+        headers.setdefault(k, v)
+    if headers.get("accept") == "*/*":
+        headers["accept"] = BROWSER_HEADERS["accept"]
+    if not headers.get("user-agent") or headers["user-agent"].lower().startswith(("curl/", "python-", "httpx/")):
+        headers["user-agent"] = USER_AGENT
+    headers["accept-encoding"] = "gzip, deflate, br"
+    # httpx respeta la grafía de las claves del dict, así que aquí se les devuelve la de un navegador. Starlette
+    # entrega las cabeceras del cliente en minúscula, de ahí que haya que rehacerlas todas.
+    return {_header_name(k): v for k, v in headers.items()}
 
 
 def _response_headers(upstream: httpx.Response, origin: str) -> list[tuple[bytes, bytes]]:

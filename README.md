@@ -28,11 +28,20 @@ Ejemplo: https://thecrag.adrianlzt.com/en/climbing/united-states/red-river-gorge
 - **No indexable**: solo habla con `www.thecrag.com`, responde `X-Robots-Tag: noindex` y `robots.txt` con
   `Disallow: /`, y limita a 6 peticiones simultáneas a theCrag (`MAX_CONCURRENCY`). En producción va sin contraseña;
   con `PROXY_PASSWORD` pide autenticación básica la primera vez (luego cookie `tcproxy_auth` de un año).
+- **Se hace pasar por un navegador**: el WAF de theCrag (Cloudflare) responde 403 «You are unable to access» a quien
+  no lo parezca. Comprueba tres cosas, y falla cualquiera de ellas: el `User-Agent` (el de Chrome o Firefox pasa, el
+  de `curl`, `python-httpx` o `HeadlessChrome` no), unas `Accept`/`Accept-Language` de navegador, y —esto es lo
+  fino— que los **nombres** de cabecera vayan en su grafía (`User-Agent`, no `user-agent`), que en HTTP/1.1 se
+  distinguen. httpx los escribe en minúscula y Starlette los entrega así, de modo que el proxy los reescribe antes de
+  enviarlos (`HEADER_CASE`) y completa lo que falte (`BROWSER_HEADERS`, `USER_AGENT`), sin pisar lo que sí mande el
+  navegador del cliente. Con `Accept-Encoding` anuncia `br`, así que la dependencia `brotli` es necesaria para
+  descomprimirlo. La `THE_CRAG_UA` cambia el user-agent por defecto si theCrag vuelve a apretar.
 
 Limitaciones: solo YDS y V (UIAA, británico, Ewbank… se quedan como estén); el contenido que el JS de theCrag pinte
 a partir de JSON sin pasar por el HTML seguirá en el sistema original; el login con Google/Facebook vuelve a
 `www.thecrag.com` (el de usuario y contraseña sí funciona por el proxy). El WAF de theCrag bloquea navegadores
-headless (`HeadlessChrome`), así que las pruebas automáticas de navegador no sirven.
+headless (`HeadlessChrome`), así que las pruebas automáticas de navegador no sirven; el proxy lo sortea con las
+cabeceras, no ejecutando un navegador.
 
 ## Desarrollo
 

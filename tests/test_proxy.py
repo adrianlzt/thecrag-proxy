@@ -14,6 +14,9 @@ def client(monkeypatch):
         assert request.url.host == "www.thecrag.com"
         assert "authorization" not in request.headers
         assert "tcproxy_auth" not in request.headers.get("cookie", "")
+        if request.url.path == "/headers":
+            SEEN["raw"] = request.headers.raw
+            return httpx.Response(204)
         if request.url.path == "/old":
             return httpx.Response(302, headers={"location": "https://www.thecrag.com/new"})
         if request.url.path == "/login":
@@ -79,6 +82,36 @@ def test_peticion_hacia_arriba(client):
     assert r.status_code == 204
     assert SEEN["referer"] == "https://www.thecrag.com/en/x"
     assert SEEN["body"] == "back=https://www.thecrag.com/en/y"
+
+
+def test_cabeceras_de_navegador(client):
+    """El WAF de theCrag bloquea a los clientes que no lo parecen: UA de Chrome, Accept de navegador y nombres de
+    cabecera en su grafía (httpx los escribe en minúscula)."""
+    SEEN.clear()
+    r = client.get(
+        "/headers",
+        auth=("a", "secreto"),
+        headers={"user-agent": "curl/8.5.0", "accept": "*/*", "range": "bytes=0-99"},
+    )
+    assert r.status_code == 204
+    raw = dict(SEEN["raw"])
+    assert raw[b"User-Agent"] == main.USER_AGENT.encode()
+    assert raw[b"Accept"] == main.BROWSER_HEADERS["accept"].encode()
+    assert raw[b"Accept-Language"] == main.BROWSER_HEADERS["accept-language"].encode()
+    assert raw[b"Accept-Encoding"] == b"gzip, deflate, br"
+    # `range` no está en HEADER_CASE: la grafía se saca igualmente.
+    assert raw[b"Range"] == b"bytes=0-99"
+    # Ni una cabecera con el nombre en minúscula, que es lo que rechaza el WAF.
+    assert [k for k in raw if k[:1].islower()] == []
+
+    # El navegador de verdad conserva lo suyo: no se pisa su user-agent ni su idioma.
+    SEEN.clear()
+    ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36"
+    r = client.get("/headers", auth=("a", "secreto"), headers={"user-agent": ua, "accept-language": "en-GB,en"})
+    assert r.status_code == 204
+    raw = dict(SEEN["raw"])
+    assert raw[b"User-Agent"] == ua.encode()
+    assert raw[b"Accept-Language"] == b"en-GB,en"
 
 
 def test_robots(client):
