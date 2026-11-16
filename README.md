@@ -45,6 +45,11 @@ Ejemplo: https://thecrag.adrianlzt.com/en/climbing/united-states/red-river-gorge
   así que el proxy convierte ese enlace en el botón real (`fn-topo-fullscreen`), que usa la API Fullscreen del
   navegador. Como es un extra de supporter y el proxy es de uso exclusivo suyo, se aplica siempre (también sin
   contraseña).
+- **Zoom del croquis a pantalla completa**: theCrag amplía 3x al hacer clic (y otro clic lo deshace), que a pantalla
+  completa es incómodo. El proxy inyecta un script (`app/fullscreen.py`) que, solo mientras el croquis está a
+  pantalla completa, desactiva ese clic y pone lo de siempre: pellizco de dos dedos (o Ctrl+rueda, que es como el
+  navegador entrega el pellizco del trackpad) para ampliar alrededor del punto señalado, y arrastre para mover. Al
+  salir, el croquis vuelve a como estaba. El clic normal sigue seleccionando la vía.
 
 Limitaciones: solo YDS y V (UIAA, británico, Ewbank… se quedan como estén); el contenido que el JS de theCrag pinte
 a partir de JSON sin pasar por el HTML seguirá en el sistema original; el login con Google/Facebook vuelve a

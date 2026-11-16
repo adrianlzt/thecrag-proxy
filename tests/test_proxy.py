@@ -25,6 +25,12 @@ def client(monkeypatch):
                 headers=[("set-cookie", "sid=1; Domain=.thecrag.com; Path=/; Secure"), ("content-type", "text/plain")],
                 text="ok",
             )
+        if request.url.path == "/topo-fsc":
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/html; charset=utf-8"},
+                text='<div class="phototopo-fsc"><div class="phototopo"></div></div></body>',
+            )
         if request.url.path == "/topo":
             return httpx.Response(
                 200,
@@ -126,6 +132,17 @@ def test_croquis_pantalla_completa(client):
     assert 'class="badge badge--supporter fn-topo-fullscreen"' in r.text
     assert 'href="#"' in r.text
     assert "supporterbenefits" not in r.text
+
+
+def test_zoom_pantalla_completa(client):
+    """La página con croquis lleva el script del gesto de zoom, justo antes de `</body>`."""
+    r = client.get("/en/x", auth=("a", "secreto"))
+    assert "phototopo-fsc" not in r.text  # el HTML de prueba no trae croquis: no se inyecta nada
+    assert "fsZoom" not in r.text
+
+    r = client.get("/topo-fsc", auth=("a", "secreto"))
+    assert r.text.count("fsZoom") > 0
+    assert r.text.index("fsZoom") < r.text.index("</body>")  # antes de cerrar el body
 
 
 def test_robots(client):
