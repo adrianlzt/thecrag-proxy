@@ -41,7 +41,9 @@ Ejemplo: https://thecrag.adrianlzt.com/en/climbing/united-states/red-river-gorge
   www.thecrag.com. El proxy sirve `maps-*.js` desde `/_tcstatic/cids/` con esa URL cambiada por
   `tile.openstreetmap.org` (mismo mapa); el resto del JS sigue viniendo de static.thecrag.com.
 - **Croquis a pantalla completa**: en theCrag es una ventaja de los supporters (de pago); sin sesión de supporter el
-  botón lleva a `supporterbenefits#topofullscreen`. El proxy no lo desbloquea.
+  botón lleva a `supporterbenefits#topofullscreen`. Adrián es supporter pero su sesión no se reconocía por el proxy,
+  así que, **solo con `PROXY_PASSWORD` puesto** (proxy de uso exclusivo suyo), el proxy convierte ese enlace en el
+  botón real (`fn-topo-fullscreen`), que usa la API Fullscreen del navegador. Sin contraseña no lo toca.
 
 Limitaciones: solo YDS y V (UIAA, británico, Ewbank… se quedan como estén); el contenido que el JS de theCrag pinte
 a partir de JSON sin pasar por el HTML seguirá en el sistema original; el login con Google/Facebook vuelve a

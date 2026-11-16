@@ -97,6 +97,11 @@ THECRAG_TILES = "https://maps.thecrag.com/{z}/{x}/{y}.png"
 OSM_TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 _static_cache: dict[str, bytes] = {}
 
+# Croquis a pantalla completa (ventaja de supporter; Adrián lo es, pero su sesión no llega a reconocerse por el proxy y
+# el proxy ya solo es accesible con su contraseña). Sin sesión de supporter theCrag pinta el botón como un enlace a
+# supporterbenefits; se convierte en el botón real (`fn-topo-fullscreen`), que common.js engancha al cargar.
+_TOPO_FS_RE = re.compile(r'<a class="badge badge--supporter"([^>]*?)href="[^"]*supporterbenefits#topofullscreen"')
+
 
 def _auth_token() -> str:
     return hmac.new(PASSWORD.encode(), b"thecrag-proxy", hashlib.sha256).hexdigest()
@@ -254,7 +259,10 @@ async def proxy(request: Request) -> Response:
 
     text = to_public(upstream.text, origin)
     if ctype.startswith("text/html"):
-        text = convert_html(_MAPS_JS_RE.sub(r"/_tcstatic/cids/\1", text))
+        text = _MAPS_JS_RE.sub(r"/_tcstatic/cids/\1", text)
+        if PASSWORD:  # solo con el proxy cerrado con contraseña
+            text = _TOPO_FS_RE.sub(r'<a class="badge badge--supporter fn-topo-fullscreen"\1href="#"', text)
+        text = convert_html(text)
     content = text.encode(upstream.encoding or "utf-8", "replace")
     resp = Response(content, status_code=upstream.status_code)
     resp.raw_headers = [h for h in headers if h[0] != b"content-type"] + [
