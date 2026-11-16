@@ -37,6 +37,12 @@ Ejemplo: https://thecrag.adrianlzt.com/en/climbing/united-states/red-river-gorge
   navegador del cliente. Con `Accept-Encoding` anuncia `br`, así que la dependencia `brotli` es necesaria para
   descomprimirlo. La `THE_CRAG_UA` cambia el user-agent por defecto si theCrag vuelve a apretar.
 
+- **Mapas**: el fondo por defecto («OSM (theCrag)») pide teselas a `maps.thecrag.com`, que no las da fuera de
+  www.thecrag.com. El proxy sirve `maps-*.js` desde `/_tcstatic/cids/` con esa URL cambiada por
+  `tile.openstreetmap.org` (mismo mapa); el resto del JS sigue viniendo de static.thecrag.com.
+- **Croquis a pantalla completa**: en theCrag es una ventaja de los supporters (de pago); sin sesión de supporter el
+  botón lleva a `supporterbenefits#topofullscreen`. El proxy no lo desbloquea.
+
 Limitaciones: solo YDS y V (UIAA, británico, Ewbank… se quedan como estén); el contenido que el JS de theCrag pinte
 a partir de JSON sin pasar por el HTML seguirá en el sistema original; el login con Google/Facebook vuelve a
 `www.thecrag.com` (el de usuario y contraseña sí funciona por el proxy). El WAF de theCrag bloquea navegadores
