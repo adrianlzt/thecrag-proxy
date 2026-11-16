@@ -61,7 +61,7 @@ Sin `PROXY_PASSWORD` no pide contraseña.
 ## Despliegue en arc2 (el que se usa)
 
 theCrag (su WAF de Cloudflare) bloqueó la IP de Oracle a las pocas horas; desde casa (arc2) no. Así que el proxy
-corre en arc2 como servicio de usuario (`deploy/thecrag-proxy.service`, `127.0.0.1:8471`, sin contraseña) y se
+corre en arc2 como servicio de usuario (`deploy/thecrag-proxy.service`, `127.0.0.1:8471`, con contraseña: `PROXY_PASSWORD` en `~/.config/thecrag-proxy.env`, sacada de gopass `thecrag-proxy/auth`) y se
 publica por el túnel de Cloudflare de arc2 (`cloudflared.service`, gestionado desde el panel de Zero Trust):
 hostname público `thecrag.adrianlzt.com` → `http://localhost:8471`.
 
