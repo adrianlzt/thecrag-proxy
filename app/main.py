@@ -4,8 +4,8 @@ https://thecrag.adrianlzt.com/<ruta> sirve https://www.thecrag.com/<ruta>: reesc
 redirecciones y las cookies para que la navegación siga en el proxy, y convierte los grados del HTML (app/grades.py).
 CSS, JS e imágenes de static.thecrag.com / image.thecrag.com se cargan directamente de theCrag.
 
-Uso personal: con PROXY_PASSWORD pide autenticación básica (una vez; luego queda una cookie de un año) y todas las
-respuestas llevan X-Robots-Tag: noindex.
+Uso personal: en producción va sin contraseña; con PROXY_PASSWORD (opcional) pide autenticación básica (una vez; luego
+queda una cookie de un año). Todas las respuestas llevan X-Robots-Tag: noindex.
 """
 
 import asyncio
@@ -97,9 +97,10 @@ THECRAG_TILES = "https://maps.thecrag.com/{z}/{x}/{y}.png"
 OSM_TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 _static_cache: dict[str, bytes] = {}
 
-# Croquis a pantalla completa (ventaja de supporter; Adrián lo es, pero su sesión no llega a reconocerse por el proxy y
-# el proxy ya solo es accesible con su contraseña). Sin sesión de supporter theCrag pinta el botón como un enlace a
-# supporterbenefits; se convierte en el botón real (`fn-topo-fullscreen`), que common.js engancha al cargar.
+# Croquis a pantalla completa (ventaja de supporter; Adrián lo es, pero su sesión no llega a reconocerse por el proxy).
+# Sin sesión de supporter theCrag pinta el botón como un enlace a supporterbenefits; se convierte en el botón real
+# (`fn-topo-fullscreen`), que common.js engancha al cargar. Se aplica siempre: es un extra de supporter y el proxy es de
+# uso exclusivo suyo.
 _TOPO_FS_RE = re.compile(r'<a class="badge badge--supporter"([^>]*?)href="[^"]*supporterbenefits#topofullscreen"')
 
 
@@ -260,8 +261,7 @@ async def proxy(request: Request) -> Response:
     text = to_public(upstream.text, origin)
     if ctype.startswith("text/html"):
         text = _MAPS_JS_RE.sub(r"/_tcstatic/cids/\1", text)
-        if PASSWORD:  # solo con el proxy cerrado con contraseña
-            text = _TOPO_FS_RE.sub(r'<a class="badge badge--supporter fn-topo-fullscreen"\1href="#"', text)
+        text = _TOPO_FS_RE.sub(r'<a class="badge badge--supporter fn-topo-fullscreen"\1href="#"', text)
         text = convert_html(text)
     content = text.encode(upstream.encoding or "utf-8", "replace")
     resp = Response(content, status_code=upstream.status_code)

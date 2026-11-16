@@ -8,7 +8,8 @@ After=network-online.target
 
 [Service]
 WorkingDirectory=%h/Documentos/escalada/thecrag-proxy
-# PROXY_PASSWORD (autenticación básica) sale de este fichero, fuera del repo; se genera desde gopass thecrag-proxy/auth.
+# Fichero de entorno fuera del repo, opcional y ahora vacío: sin PROXY_PASSWORD el proxy no pide contraseña. Para
+# volver a cerrarlo, poner PROXY_PASSWORD=<lo que sea> (gopass thecrag-proxy/auth) y reiniciar el servicio.
 EnvironmentFile=-%h/.config/thecrag-proxy.env
 ExecStart=/usr/bin/uv run --frozen --no-dev uvicorn app.main:app --host 127.0.0.1 --port 8471 --proxy-headers --forwarded-allow-ips 127.0.0.1 --no-server-header
 Restart=on-failure

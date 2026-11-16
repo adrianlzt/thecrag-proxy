@@ -26,8 +26,8 @@ Ejemplo: https://thecrag.adrianlzt.com/en/climbing/united-states/red-river-gorge
   arriba se hace lo contrario con `Referer`, `Origin`, query y cuerpos de formularios. CSS, JS e imágenes vienen de
   `static.thecrag.com`/`image.thecrag.com` directamente.
 - **No indexable**: solo habla con `www.thecrag.com`, responde `X-Robots-Tag: noindex` y `robots.txt` con
-  `Disallow: /`, y limita a 6 peticiones simultáneas a theCrag (`MAX_CONCURRENCY`). En producción va sin contraseña;
-  con `PROXY_PASSWORD` pide autenticación básica la primera vez (luego cookie `tcproxy_auth` de un año).
+  `Disallow: /`, y limita a 6 peticiones simultáneas a theCrag (`MAX_CONCURRENCY`). Va sin contraseña; con
+  `PROXY_PASSWORD` pide autenticación básica la primera vez (luego cookie `tcproxy_auth` de un año).
 - **Se hace pasar por un navegador**: el WAF de theCrag (Cloudflare) responde 403 «You are unable to access» a quien
   no lo parezca. Comprueba tres cosas, y falla cualquiera de ellas: el `User-Agent` (el de Chrome o Firefox pasa, el
   de `curl`, `python-httpx` o `HeadlessChrome` no), unas `Accept`/`Accept-Language` de navegador, y —esto es lo
@@ -42,8 +42,9 @@ Ejemplo: https://thecrag.adrianlzt.com/en/climbing/united-states/red-river-gorge
   `tile.openstreetmap.org` (mismo mapa); el resto del JS sigue viniendo de static.thecrag.com.
 - **Croquis a pantalla completa**: en theCrag es una ventaja de los supporters (de pago); sin sesión de supporter el
   botón lleva a `supporterbenefits#topofullscreen`. Adrián es supporter pero su sesión no se reconocía por el proxy,
-  así que, **solo con `PROXY_PASSWORD` puesto** (proxy de uso exclusivo suyo), el proxy convierte ese enlace en el
-  botón real (`fn-topo-fullscreen`), que usa la API Fullscreen del navegador. Sin contraseña no lo toca.
+  así que el proxy convierte ese enlace en el botón real (`fn-topo-fullscreen`), que usa la API Fullscreen del
+  navegador. Como es un extra de supporter y el proxy es de uso exclusivo suyo, se aplica siempre (también sin
+  contraseña).
 
 Limitaciones: solo YDS y V (UIAA, británico, Ewbank… se quedan como estén); el contenido que el JS de theCrag pinte
 a partir de JSON sin pasar por el HTML seguirá en el sistema original; el login con Google/Facebook vuelve a
@@ -63,7 +64,9 @@ Sin `PROXY_PASSWORD` no pide contraseña.
 ## Despliegue en arc2 (el que se usa)
 
 theCrag (su WAF de Cloudflare) bloqueó la IP de Oracle a las pocas horas; desde casa (arc2) no. Así que el proxy
-corre en arc2 como servicio de usuario (`deploy/thecrag-proxy.service`, `127.0.0.1:8471`, con contraseña: `PROXY_PASSWORD` en `~/.config/thecrag-proxy.env`, sacada de gopass `thecrag-proxy/auth`) y se
+corre en arc2 como servicio de usuario (`deploy/thecrag-proxy.service`, `127.0.0.1:8471`, sin contraseña:
+`~/.config/thecrag-proxy.env` está vacío desde 2026-11-16; para volver a cerrarlo, `PROXY_PASSWORD` sacada de gopass
+`thecrag-proxy/auth`) y se
 publica por el túnel de Cloudflare de arc2 (`cloudflared.service`, gestionado desde el panel de Zero Trust):
 hostname público `thecrag.adrianlzt.com` → `http://localhost:8471`.
 

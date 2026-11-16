@@ -25,6 +25,12 @@ def client(monkeypatch):
                 headers=[("set-cookie", "sid=1; Domain=.thecrag.com; Path=/; Secure"), ("content-type", "text/plain")],
                 text="ok",
             )
+        if request.url.path == "/topo":
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/html; charset=utf-8"},
+                text='<a class="badge badge--supporter" title="Croquis" href="/en/supporterbenefits#topofullscreen">x</a>',
+            )
         if request.url.path == "/echo":
             SEEN.update(referer=request.headers["referer"], body=request.content.decode(), url=str(request.url))
             return httpx.Response(204)
@@ -112,6 +118,14 @@ def test_cabeceras_de_navegador(client):
     raw = dict(SEEN["raw"])
     assert raw[b"User-Agent"] == ua.encode()
     assert raw[b"Accept-Language"] == b"en-GB,en"
+
+
+def test_croquis_pantalla_completa(client):
+    """El botón de supporter pasa a ser el real (`fn-topo-fullscreen`) siempre, no solo con el proxy cerrado."""
+    r = client.get("/topo", auth=("a", "secreto"))
+    assert 'class="badge badge--supporter fn-topo-fullscreen"' in r.text
+    assert 'href="#"' in r.text
+    assert "supporterbenefits" not in r.text
 
 
 def test_robots(client):
