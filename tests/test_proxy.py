@@ -136,3 +136,12 @@ def test_maps_js(client, monkeypatch):
     r = client.get("/_tcstatic/cids/maps-1.1.62.js")
     assert r.status_code == 200 and "tile.openstreetmap.org" in r.text
     assert client.get("/_tcstatic/cids/common-1.1.78.js").status_code == 404
+
+
+def test_to_public_codificado():
+    import app.main as m
+
+    loc = "/CIDS/cgi-bin/cids.cgi?return=https%3A%2F%2Fwww.thecrag.com%2Fen%2Fx&D%3ALoginTarget=https%3A%2F%2Fwww.thecrag.com%2Fen%2Fx"
+    out = m.to_public(loc, "https://thecrag.adrianlzt.com")
+    assert "www.thecrag.com" not in out
+    assert out.count("https%3A%2F%2Fthecrag.adrianlzt.com%2Fen%2Fx") == 2

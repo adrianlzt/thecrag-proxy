@@ -82,6 +82,9 @@ TEXT_TYPES = ("text/", "application/json", "application/javascript", "applicatio
 
 # https://www.thecrag.com, //www.thecrag.com, https:\/\/thecrag.com (JSON)… pero no static./image.thecrag.com.
 _ABS_RE = re.compile(r"(https?:)?(//|\\/\\/)(?:www\.)?thecrag\.com(?![\w.-])", re.I)
+# La misma URL codificada en un parámetro (p. ej. `LoginTarget=https%3A%2F%2Fwww.thecrag.com%2F…` del login): sin
+# esto, tras iniciar sesión theCrag manda al navegador a www.thecrag.com y la sesión se queda fuera del proxy.
+_ABS_ENC_RE = re.compile(r"https?%3A%2F%2F(?:www\.)?thecrag\.com(?![\w.-])", re.I)
 _COOKIE_DOMAIN_RE = re.compile(r";\s*domain=[^;]*", re.I)
 
 # El JS de mapas se sirve desde el proxy para cambiar el fondo por defecto («OSM (theCrag)»): sus teselas vienen de
@@ -124,7 +127,7 @@ def to_public(text: str, origin: str) -> str:
     def sub(m: re.Match) -> str:
         return (f"{scheme}:" if m.group(1) else "") + m.group(2) + host
 
-    return _ABS_RE.sub(sub, text)
+    return _ABS_ENC_RE.sub(quote(origin, safe=""), _ABS_RE.sub(sub, text))
 
 
 def to_upstream(text: str, origin: str) -> str:
