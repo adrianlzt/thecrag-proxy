@@ -127,3 +127,12 @@ def test_query_codificada(client):
     )
     assert r.status_code == 204
     assert SEEN["url"] == "https://www.thecrag.com/echo?back=https%3A%2F%2Fwww.thecrag.com%2Fen%2Fy"
+
+
+def test_maps_js(client, monkeypatch):
+    import app.main as m
+
+    m._static_cache["maps-1.1.62.js"] = b"L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png')"
+    r = client.get("/_tcstatic/cids/maps-1.1.62.js")
+    assert r.status_code == 200 and "tile.openstreetmap.org" in r.text
+    assert client.get("/_tcstatic/cids/common-1.1.78.js").status_code == 404

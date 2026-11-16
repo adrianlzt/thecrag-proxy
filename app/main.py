@@ -84,6 +84,16 @@ TEXT_TYPES = ("text/", "application/json", "application/javascript", "applicatio
 _ABS_RE = re.compile(r"(https?:)?(//|\\/\\/)(?:www\.)?thecrag\.com(?![\w.-])", re.I)
 _COOKIE_DOMAIN_RE = re.compile(r";\s*domain=[^;]*", re.I)
 
+# El JS de mapas se sirve desde el proxy para cambiar el fondo por defecto («OSM (theCrag)»): sus teselas vienen de
+# maps.thecrag.com, que solo las da a www.thecrag.com (403 con el Referer del proxy). Se cambian por las de
+# tile.openstreetmap.org, que son el mismo mapa.
+STATIC = "https://static.thecrag.com"
+_MAPS_JS_RE = re.compile(r"https://static\.thecrag\.com/cids/(maps-[\d.]+\.js)")
+_MAPS_NAME_RE = re.compile(r"maps-[\d.]+\.js")
+THECRAG_TILES = "https://maps.thecrag.com/{z}/{x}/{y}.png"
+OSM_TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+_static_cache: dict[str, bytes] = {}
+
 
 def _auth_token() -> str:
     return hmac.new(PASSWORD.encode(), b"thecrag-proxy", hashlib.sha256).hexdigest()
@@ -182,6 +192,22 @@ async def healthz(_: Request) -> Response:
     return PlainTextResponse("ok")
 
 
+async def maps_js(request: Request) -> Response:
+    name = request.path_params["name"]
+    if not _MAPS_NAME_RE.fullmatch(name):
+        return PlainTextResponse("no", status_code=404)
+    if name not in _static_cache:
+        r = await request.app.state.client.get(f"{STATIC}/cids/{name}")
+        if r.status_code != 200:
+            return PlainTextResponse("upstream", status_code=502)
+        _static_cache[name] = r.text.replace(THECRAG_TILES, OSM_TILES).encode()
+    return Response(
+        _static_cache[name],
+        media_type="text/javascript",
+        headers={"cache-control": "public, max-age=86400", "x-robots-tag": ROBOTS},
+    )
+
+
 async def proxy(request: Request) -> Response:
     if not _authorized(request):
         return PlainTextResponse(
@@ -225,7 +251,7 @@ async def proxy(request: Request) -> Response:
 
     text = to_public(upstream.text, origin)
     if ctype.startswith("text/html"):
-        text = convert_html(text)
+        text = convert_html(_MAPS_JS_RE.sub(r"/_tcstatic/cids/\1", text))
     content = text.encode(upstream.encoding or "utf-8", "replace")
     resp = Response(content, status_code=upstream.status_code)
     resp.raw_headers = [h for h in headers if h[0] != b"content-type"] + [
@@ -250,6 +276,7 @@ app = Starlette(
     routes=[
         Route("/robots.txt", robots),
         Route("/healthz", healthz),
+        Route("/_tcstatic/cids/{name}", maps_js),
         Route("/{path:path}", proxy, methods=METHODS),
     ],
     lifespan=lifespan,
