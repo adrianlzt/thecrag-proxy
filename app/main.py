@@ -25,6 +25,7 @@ from starlette.responses import PlainTextResponse, Response, StreamingResponse
 from starlette.routing import Route
 
 from .fullscreen import inject as inject_fullscreen
+from .fullscreen_grades import inject as inject_fullscreen_grades
 from .grades import convert_html
 
 UPSTREAM = os.environ.get("UPSTREAM", "https://www.thecrag.com").rstrip("/")
@@ -265,6 +266,7 @@ async def proxy(request: Request) -> Response:
         text = _TOPO_FS_RE.sub(r'<a class="badge badge--supporter fn-topo-fullscreen"\1href="#"', text)
         text = convert_html(text)
         text = inject_fullscreen(text)
+        text = inject_fullscreen_grades(text)
     content = text.encode(upstream.encoding or "utf-8", "replace")
     resp = Response(content, status_code=upstream.status_code)
     resp.raw_headers = [h for h in headers if h[0] != b"content-type"] + [

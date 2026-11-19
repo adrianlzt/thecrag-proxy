@@ -176,3 +176,11 @@ def test_to_public_codificado():
     out = m.to_public(loc, "https://thecrag.adrianlzt.com")
     assert "www.thecrag.com" not in out
     assert out.count("https%3A%2F%2Fthecrag.adrianlzt.com%2Fen%2Fx") == 2
+
+
+def test_grados_en_croquis_a_pantalla_completa():
+    from app.fullscreen_grades import inject
+
+    html = '<div class="phototopo-fsc"></div></body>'
+    assert "tcfr-grade" in inject(html)
+    assert inject("<p>sin croquis</p></body>") == "<p>sin croquis</p></body>"
