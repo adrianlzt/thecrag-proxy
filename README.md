@@ -50,9 +50,9 @@ Ejemplo: https://thecrag.adrianlzt.com/en/climbing/united-states/red-river-gorge
   pantalla completa, desactiva ese clic y pone lo de siempre: pellizco de dos dedos (o Ctrl+rueda, que es como el
   navegador entrega el pellizco del trackpad) para ampliar alrededor del punto señalado, y arrastre para mover. Al
   salir, el croquis vuelve a como estaba. El clic normal sigue seleccionando la vía.
-- **Grados en el croquis a pantalla completa**: a pantalla completa no se ve la lista de vías, así que el proxy
-  inyecta otro script (`app/fullscreen_grades.py`) que, solo entonces, pone el grado (ya en francés, del
-  `data-topodata`) encima de cada número del croquis, o debajo si choca con el de al lado. Al salir se quita.
+- **Grados en el croquis**: el proxy inyecta otro script (`app/fullscreen_grades.py`) que pone el grado (ya en
+  francés, del `data-topodata`) encima de cada número del croquis, o debajo si choca con el de al lado; a pantalla
+  completa y fuera de ella.
 
 Limitaciones: solo YDS y V (UIAA, británico, Ewbank… se quedan como estén); el contenido que el JS de theCrag pinte
 a partir de JSON sin pasar por el HTML seguirá en el sistema original; el login con Google/Facebook vuelve a

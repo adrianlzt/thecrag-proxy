@@ -1,17 +1,17 @@
-"""Grados junto a los números del croquis a pantalla completa.
+"""Grados junto a los números del croquis (también fuera de pantalla completa).
 
 En el croquis theCrag solo pinta el número de cada vía (`<g class="label gbN"><rect/><text>num</text></g>` en el SVG);
-el grado está en la lista de debajo, que a pantalla completa no se ve. Este script, solo mientras el croquis está a
-pantalla completa, añade encima de cada etiqueta un texto con el grado de esa vía, sacado del `data-topodata` del
+el grado está en la lista de debajo, que a pantalla completa no se ve. Este script añade (siempre, a pantalla
+completa o no) encima de cada etiqueta un texto con el grado de esa vía, sacado del `data-topodata` del
 croquis (que el proxy ya ha pasado a francés). Si en un grupo de etiquetas hay dos pegadas en la misma fila, la
-segunda lleva el grado debajo para que no se monten. Al salir de pantalla completa se quitan.
+segunda lleva el grado debajo para que no se monten.
 
-theCrag vuelve a pintar el SVG al cambiar de tamaño (y entrar en pantalla completa es un cambio de tamaño), así que
-un MutationObserver los vuelve a poner cuando el SVG cambia.
+theCrag pinta el SVG después de cargar y lo vuelve a pintar al cambiar de tamaño (entrar o salir de pantalla
+completa también), así que un MutationObserver los vuelve a poner cuando el SVG cambia.
 """
 
 SCRIPT = """<script>
-/* Grados en las etiquetas del croquis a pantalla completa. Ver app/fullscreen_grades.py. */
+/* Grados en las etiquetas del croquis. Ver app/fullscreen_grades.py. */
 (function () {
   var SEL = ".phototopo-fsc";
   var NS = "http://www.w3.org/2000/svg";
@@ -27,10 +27,6 @@ SCRIPT = """<script>
       });
     } catch (e) {}
     return map;
-  }
-
-  function clear(fsc) {
-    fsc.querySelectorAll("." + CLS).forEach(function (n) { n.remove(); });
   }
 
   function annotate(fsc) {
@@ -76,16 +72,11 @@ SCRIPT = """<script>
     fsc._tcfrObs.observe(canvas, { childList: true, subtree: true });
   }
 
-  function stop(fsc) {
-    if (fsc._tcfrObs) { fsc._tcfrObs.disconnect(); fsc._tcfrObs = null; }
-    clear(fsc);
-  }
-
-  document.addEventListener("fullscreenchange", function () {
-    var fsc = document.fullscreenElement;
-    if (fsc && fsc.matches && fsc.matches(SEL)) start(fsc);
-    else document.querySelectorAll(SEL).forEach(stop);
-  });
+  // Siempre, no solo a pantalla completa: cada croquis de la página, en cuanto está.
+  function all() { document.querySelectorAll(SEL).forEach(start); }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", all);
+  else all();
+  window.addEventListener("load", all);
 })();
 </script>"""
 
