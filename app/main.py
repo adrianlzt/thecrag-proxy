@@ -21,11 +21,12 @@ import httpx
 from starlette.applications import Starlette
 from starlette.background import BackgroundTask
 from starlette.requests import Request
-from starlette.responses import PlainTextResponse, Response, StreamingResponse
+from starlette.responses import JSONResponse, PlainTextResponse, Response, StreamingResponse
 from starlette.routing import Route
 
 from .fullscreen import inject as inject_fullscreen
 from .fullscreen_grades import inject as inject_fullscreen_grades
+from .ticks import inject as inject_ticks, ticks
 from .grades import convert_html
 
 UPSTREAM = os.environ.get("UPSTREAM", "https://www.thecrag.com").rstrip("/")
@@ -199,6 +200,18 @@ async def robots(_: Request) -> Response:
     return PlainTextResponse("User-agent: *\nDisallow: /\n", headers={"x-robots-tag": ROBOTS})
 
 
+async def ticks_api(request: Request) -> Response:
+    """Cruce de las vías de una página con las ascensiones de 8a.nu (ver app/ticks.py)."""
+    try:
+        body = await request.json()
+        routes = body.get("routes") or []
+        places = body.get("places") or []
+        assert isinstance(routes, list) and isinstance(places, list) and len(routes) <= 2000
+    except Exception:
+        return PlainTextResponse("bad request", status_code=400)
+    return JSONResponse(ticks.match(routes, [str(p) for p in places]), headers={"cache-control": "no-store"})
+
+
 async def healthz(_: Request) -> Response:
     return PlainTextResponse("ok")
 
@@ -267,6 +280,7 @@ async def proxy(request: Request) -> Response:
         text = convert_html(text)
         text = inject_fullscreen(text)
         text = inject_fullscreen_grades(text)
+        text = inject_ticks(text)
     content = text.encode(upstream.encoding or "utf-8", "replace")
     resp = Response(content, status_code=upstream.status_code)
     resp.raw_headers = [h for h in headers if h[0] != b"content-type"] + [
@@ -283,7 +297,12 @@ async def lifespan(app: Starlette):
     ) as client:
         app.state.client = client
         app.state.sem = asyncio.Semaphore(MAX_CONCURRENCY)
-        yield
+        task = asyncio.create_task(ticks.run(client)) if ticks.enabled else None
+        try:
+            yield
+        finally:
+            if task:
+                task.cancel()
 
 
 METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
@@ -292,6 +311,7 @@ app = Starlette(
         Route("/robots.txt", robots),
         Route("/healthz", healthz),
         Route("/_tcstatic/cids/{name}", maps_js),
+        Route("/_proxy/ticks", ticks_api, methods=["POST"]),
         Route("/{path:path}", proxy, methods=METHODS),
     ],
     lifespan=lifespan,

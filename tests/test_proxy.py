@@ -184,3 +184,33 @@ def test_grados_en_croquis_a_pantalla_completa():
     html = '<div class="phototopo-fsc"></div></body>'
     assert "tcfr-grade" in inject(html)
     assert inject("<p>sin croquis</p></body>") == "<p>sin croquis</p></body>"
+
+
+def test_ticks_match_y_endpoint():
+    from app.ticks import Ticks, grade_index, norm, ticks
+
+    assert norm("老寿星 Ya Mummas as Old as Dirt") == norm("Ya Mummas as Old as Dirt") == "yamummasasoldasdirt"
+    assert norm("L'Herbolari") == "herbolari" and norm("The Red Wall") == "redwall"
+    assert grade_index("5.10d") == grade_index("6b+")
+    t = Ticks()
+    t.set(
+        [
+            {"crag_name": "Wine Bottle", "sector_name": "Wine Bottle", "area_name": "Yangshuo", "zlaggable_name": "Slack", "difficulty": "6a+", "d": "2026-11-16"},
+            {"crag_name": "Siurana", "sector_name": "El Pati", "area_name": "Siurana", "zlaggable_name": "Slack", "difficulty": "7c", "d": "2020-01-01"},
+            {"crag_name": "Rodellar", "sector_name": "x", "area_name": "Rodellar", "zlaggable_name": "The Red Wall", "difficulty": "6a", "d": "2019-05-05"},
+        ],
+        "test",
+    )
+    m = t.match(
+        [{"id": "1", "name": "Slack", "grade": "5.10b"}, {"id": "2", "name": "Red Wall", "grade": "5.11d"}, {"id": "3", "name": "Nada", "grade": "5.9"}],
+        ["Asia", "China", "阳朔 Yangshuo", "酒瓶山 Wine Bottle"],
+    )
+    assert m["1"]["status"] == "sent" and m["1"]["crag"] == "Wine Bottle"
+    assert m["2"]["status"] == "maybe"  # mismo nombre, otra escuela y otro grado
+    assert "3" not in m
+
+    ticks.set(t.ascents, "test")
+    with TestClient(main.app, base_url="https://thecrag.adrianlzt.com") as c:
+        r = c.post("/_proxy/ticks", json={"routes": [{"id": "1", "name": "Slack", "grade": "6a+"}], "places": ["Wine Bottle"]})
+        assert r.status_code == 200 and r.json()["1"]["status"] == "sent"
+        assert c.post("/_proxy/ticks", json={"routes": "x"}).status_code == 400

@@ -53,6 +53,14 @@ Ejemplo: https://thecrag.adrianlzt.com/en/climbing/united-states/red-river-gorge
 - **Grados en el croquis**: el proxy inyecta otro script (`app/fullscreen_grades.py`) que pone el grado (ya en
   francés, del `data-topodata`) encima de cada número del croquis, o debajo si choca con el de al lado; a pantalla
   completa y fuera de ella.
+- **✓ de lo encadenado según 8a.nu** (`app/ticks.py`): las ascensiones de Adrián salen del Postgres de
+  8anu-dashboard (Oracle) vía la API de su Grafana (`/api/ds/query`, lectura anónima), se guardan en
+  `~/.local/share/thecrag-proxy/ascents.json` y se refrescan cada 6 h en segundo plano (`TICKS_GRAFANA`,
+  `TICKS_DS_UID`, `TICKS_USER`, `TICKS_CACHE`, `TICKS_REFRESH_H`; con `TICKS_USER` vacío se desactiva). En cada página
+  con vías, un script manda a `POST /_proxy/ticks` las vías (filas y croquis) y los nombres de escuela de la página; el
+  cruce es por nombre normalizado (sin acentos, solo latino, sin artículo inicial) y da `sent` si además coincide la
+  escuela/sector/área de 8a.nu o el grado (±1), o `maybe` si solo el nombre. Pinta ✓ verde (o «?» ámbar) junto al tick
+  de cada fila y en la etiqueta del croquis. No distingue a vista / flash / encadene; excluye proyectos.
 
 Limitaciones: solo YDS y V (UIAA, británico, Ewbank… se quedan como estén); el contenido que el JS de theCrag pinte
 a partir de JSON sin pasar por el HTML seguirá en el sistema original; el login con Google/Facebook vuelve a
