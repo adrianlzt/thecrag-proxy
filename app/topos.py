@@ -34,7 +34,8 @@ PACE = float(os.environ.get("TOPOS_PACE", "4"))
 MAX_PAGES = int(os.environ.get("TOPOS_MAX_PAGES", "20"))
 COOLDOWN = float(os.environ.get("TOPOS_COOLDOWN", "600"))  # tras un corte de theCrag, ni una petición en este tiempo
 TTL = float(os.environ.get("TOPOS_TTL", "72")) * 3600
-CHILD_MAX = int(os.environ.get("TOPOS_CHILD_MAX", "8"))  # sectores hijos que se miran si la escuela no tiene croquis
+CHILD_MAX = int(os.environ.get("TOPOS_CHILD_MAX", "8"))
+CACHE_V = 2  # formato de la caché de croquis: subir cuando cambie parse_topos  # sectores hijos que se miran si la escuela no tiene croquis
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -95,6 +96,11 @@ def parse_topos(page_html: str, page_path: str) -> list[dict]:
         except ValueError:
             continue
         tail = page_html[m.end(): m.end() + 3000]
+        # theCrag multiplica cada punto por data-view-scale al dibujar sobre un viewBox de width×height.
+        try:
+            sc = float(attrs.get("view-scale") or 1) or 1.0
+        except ValueError:
+            sc = 1.0
         img = _IMG.search(tail)
         heads = _HEAD.findall(page_html[: m.start()])
         routes = []
@@ -106,7 +112,7 @@ def parse_topos(page_html: str, page_path: str) -> list[dict]:
                 bits = p.strip().split()
                 if len(bits) >= 2:
                     try:
-                        pts.append({"x": float(bits[0]), "y": float(bits[1]), "t": bits[2] if len(bits) > 2 else ""})
+                        pts.append({"x": round(float(bits[0]) * sc, 1), "y": round(float(bits[1]) * sc, 1), "t": bits[2] if len(bits) > 2 else ""})
                     except ValueError:
                         pass
             if pts:
@@ -227,11 +233,11 @@ class Topos:
         row = db.execute("select at, data from topos where path=?", (path,)).fetchone()
         if row and time.time() - row[0] < TTL:
             cached = json.loads(row[1])
-            if "children" in cached:  # las entradas de antes de guardar los hijos se vuelven a pedir
+            if cached.get("v") == CACHE_V:  # las entradas de versiones anteriores se vuelven a pedir
                 return cached
         page = await self.fetch(client, path)
         children = [l for l in parse_links(page) if l["path"].startswith(path + "/")]
-        data = {"name": page_name(page), "topos": parse_topos(page, path), "children": children}
+        data = {"v": CACHE_V, "name": page_name(page), "topos": parse_topos(page, path), "children": children}
         db.execute("insert or replace into topos values (?,?,?)", (path, time.time(), json.dumps(data)))
         db.commit()
         return data

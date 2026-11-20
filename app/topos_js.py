@@ -23,7 +23,7 @@ SCRIPT = r"""
     ".tct-topo{margin:0 0 14px;border:1px solid #ddd;border-radius:8px;overflow:hidden;background:#111}" +
     ".tct-head{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f4f4f4;color:#222;font-weight:600}" +
     ".tct-head .sp{flex:1}.tct-head button{border:1px solid #bbb;background:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:14px}" +
-    ".tct-wrap{position:relative;overflow:hidden;touch-action:none}.tct-wrap .zoom{position:relative;width:100%}" +
+    ".tct-wrap{position:relative;overflow:hidden;touch-action:pan-y pinch-zoom}.tct-topo:fullscreen .tct-wrap{touch-action:none}.tct-wrap .zoom{position:relative;width:100%}" +
     ".tct-wrap img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:fill;user-select:none;-webkit-user-drag:none;background:#333}" +
     ".tct-wrap svg{position:absolute;left:0;top:0;width:100%;height:100%}" +
     ".tct-wrap .r{cursor:pointer}.tct-wrap .r .ln{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}" +
@@ -34,6 +34,10 @@ SCRIPT = r"""
     ".tct-info{padding:6px 10px;background:#fff;color:#222;min-height:20px;font-size:13px}" +
     ".tct-info b{margin-right:6px}.tct-badge{display:inline-block;padding:0 6px;border-radius:3px;color:#fff;font-weight:bold;margin-right:6px}" +
     ".tct-legend{font-size:12px;color:#555;margin:4px 0 10px}.tct-legend i{display:inline-block;width:14px;height:4px;border-radius:2px;vertical-align:middle;margin:0 4px 0 10px}" +
+    ".tct-list{list-style:none;margin:0;padding:0;background:#fff;border-top:1px solid #eee;max-height:220px;overflow:auto}" +
+    ".tct-list li{display:flex;align-items:center;gap:8px;padding:4px 10px;border-bottom:1px solid #f2f2f2;cursor:pointer;font-size:13px}" +
+    ".tct-list li.sel{background:#eef7ff}.tct-list .n{min-width:22px;height:18px;line-height:18px;text-align:center;border-radius:3px;font-weight:bold;font-size:11px;color:#000}" +
+    ".tct-list .g{min-width:34px;font-weight:bold}.tct-list .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
     ".tct-msg{padding:10px;background:#fff8e1;border:1px solid #f0d080;border-radius:6px}" +
     ".tct-msg input{width:100%;box-sizing:border-box;margin:6px 0;padding:6px;font-size:14px}" +
     ".tct-topo:fullscreen{display:flex;flex-direction:column;background:#000}.tct-topo:fullscreen .tct-wrap{flex:1;display:flex;align-items:center;justify-content:center}" +
@@ -71,23 +75,43 @@ SCRIPT = r"""
       r.points.forEach(function (p) {
         if (p.t === "belay" || p.t === "lower") g.appendChild(svgEl("circle", { cx: p.x, cy: p.y, r: 4, fill: "#fff", stroke: "#1a3ab8", "stroke-width": 2 }));
       });
-      var p0 = r.points[0];
+      var p0 = r.points[0], pl = r.points[r.points.length - 1], pp = r.points.length > 1 ? r.points[r.points.length - 2] : null;
+      if (pp && (pp.x !== pl.x || pp.y !== pl.y)) {   // flecha en el final, como theCrag
+        var ang = Math.atan2(pl.y - pp.y, pl.x - pp.x) * 180 / Math.PI;
+        g.appendChild(svgEl("polygon", { points: "0,0 -9,-4 -9,4", fill: color, stroke: "#fff", "stroke-width": 1,
+          transform: "translate(" + pl.x + "," + pl.y + ") rotate(" + ang + ")" }));
+      }
       if (p0 && r.num) {
+        // Etiqueta bajo el inicio de la vía, pero siempre dentro del lienzo (theCrag también la sube si toca el borde).
+        var lw = 14, lh = 13, lx = Math.min(Math.max(p0.x, lw / 2 + 1), w - lw / 2 - 1), ly = Math.min(p0.y + 3, h - lh - 10);
+        var fill = r.sent === "sent" ? "#9be89b" : r.sent === "maybe" ? "#ffe08a" : "#ffd24d";
         var lbl = svgEl("g", { class: "lbl" });
-        lbl.appendChild(svgEl("rect", { x: p0.x - 7, y: p0.y + 3, width: 14, height: 13, rx: 2, fill: r.sent === "sent" ? "#9be89b" : r.sent === "maybe" ? "#ffe08a" : "#ffd24d" }));
-        var tx = svgEl("text", { x: p0.x, y: p0.y + 13 }); tx.textContent = r.num; lbl.appendChild(tx);
-        if (r.grade) { var gr = svgEl("text", { class: "grd", x: p0.x, y: p0.y + 25 }); gr.textContent = r.grade; lbl.appendChild(gr); }
+        lbl.appendChild(svgEl("rect", { x: lx - lw / 2, y: ly, width: lw, height: lh, rx: 2, fill: fill }));
+        var tx = svgEl("text", { x: lx, y: ly + 10 }); tx.textContent = r.num; lbl.appendChild(tx);
+        if (r.grade) { var gr = svgEl("text", { class: "grd", x: lx, y: ly + lh + 8 }); gr.textContent = r.grade; lbl.appendChild(gr); }
         g.appendChild(lbl);
       }
       var title = svgEl("title"); title.textContent = "#" + r.num + " " + r.name + " " + r.grade; g.appendChild(title);
       g.addEventListener("click", function (ev) { ev.stopPropagation(); select(r, g); });
-      svg.appendChild(g); groups.push(g);
+      svg.appendChild(g); groups.push(g); r._g = g;
+    });
+    // Lista de vías del croquis: para saber cuál es cuál sin tocar la foto; tocar una la resalta.
+    var list = el("ul", { class: "tct-list" });
+    t.routes.slice().sort(function (a, b) { return (parseInt(a.num, 10) || 0) - (parseInt(b.num, 10) || 0); }).forEach(function (r) {
+      var li = el("li", {}, [el("span", { class: "n", text: r.num || "·" }), el("span", { class: "g", text: r.grade || "" }), el("span", { class: "nm", text: r.name || "" })]);
+      li.firstChild.style.background = r.sent === "sent" ? "#9be89b" : r.sent === "maybe" ? "#ffe08a" : "#ffd24d";
+      if (r.sent === "sent") li.appendChild(el("span", { class: "tct-badge", text: "✓", style: "background:" + COLORS.sent }));
+      if (r.sent === "maybe") li.appendChild(el("span", { class: "tct-badge", text: "?", style: "background:" + COLORS.maybe }));
+      li.addEventListener("click", function () { select(r, r._g); });
+      r._li = li; list.appendChild(li);
     });
     function select(r, g) {
       var same = g.classList.contains("sel");
       groups.forEach(function (x) { x.classList.remove("sel"); x.classList.toggle("dim", !same && x !== g); });
+      t.routes.forEach(function (x) { if (x._li) x._li.classList.toggle("sel", !same && x === r); });
       if (same) { info.textContent = ""; return; }
       g.classList.add("sel");
+      if (r._li && r._li.scrollIntoView) r._li.scrollIntoView({ block: "nearest" });
       info.textContent = "";
       var b = el("span", { class: "tct-badge", text: r.sent === "sent" ? "✓" : r.sent === "maybe" ? "?" : "·" });
       b.style.background = COLORS[r.sent || "none"];
@@ -97,13 +121,13 @@ SCRIPT = r"""
       if (r.sent_info) info.appendChild(document.createTextNode(" · 8a.nu: " + esc(r.sent_info.crag) + " " + esc(r.sent_info.grade) + (r.sent_info.date ? ", " + r.sent_info.date : "")));
       if (r.url) { info.appendChild(document.createTextNode(" ")); info.appendChild(el("a", { href: ORIGIN + r.url, target: "_blank", text: "theCrag ↗" })); }
     }
-    svg.addEventListener("click", function () { groups.forEach(function (x) { x.classList.remove("sel", "dim"); }); info.textContent = ""; });
+    svg.addEventListener("click", function () { groups.forEach(function (x) { x.classList.remove("sel", "dim"); }); t.routes.forEach(function (x) { if (x._li) x._li.classList.remove("sel"); }); info.textContent = ""; });
     var zoom = el("div", { class: "zoom" }, [img, svg]);
     zoom.style.aspectRatio = w + " / " + h;   // el hueco de la foto, aunque tarde en cargar
     var wrap = el("div", { class: "tct-wrap" }, [zoom]);
     var fsBtn = el("button", { type: "button", title: "Pantalla completa", text: "⛶" });
     var head = el("div", { class: "tct-head" }, [el("span", { text: t.heading || "" }), el("span", { class: "sp" }), el("span", { text: t.routes.length + " vías", style: "font-weight:normal;color:#666" }), fsBtn]);
-    var card = el("div", { class: "tct-topo" }, [head, wrap, info]);
+    var card = el("div", { class: "tct-topo" }, [head, wrap, info, list]);
     fsBtn.addEventListener("click", function () {
       if (document.fullscreenElement === card) document.exitFullscreen();
       else if (card.requestFullscreen) card.requestFullscreen();
