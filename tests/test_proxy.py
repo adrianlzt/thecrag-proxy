@@ -239,7 +239,7 @@ def test_topos_parse():
 def test_topos_endpoint(client, monkeypatch):
     import app.topos as tp
 
-    async def fake_lookup(client_, country, area, crag, tc="", sector=""):
+    async def fake_lookup(client_, country, area, crag, tc="", sector="", crag_slug=""):
         return {"crag": {"path": "/en/climbing/x/y", "name": "Y"}, "topos": []}
 
     monkeypatch.setattr(main, "topos_lookup", fake_lookup)
@@ -248,3 +248,26 @@ def test_topos_endpoint(client, monkeypatch):
     assert client.get("/_proxy/topos").status_code == 400
     js = client.get("/_proxy/topos.js")
     assert js.status_code == 200 and "tcTopos" in js.text
+
+
+def test_eight_apply():
+    from app.eight import apply
+
+    topos = [{"routes": [
+        {"id": "1", "name": "Missed Connection", "grade": "7b", "ascents": 3},
+        {"id": "2", "name": "Merry Christmas Birt Bacharach", "grade": "6c+", "ascents": 9},
+        {"id": "3", "name": "Ruta nueva", "grade": "6a", "ascents": 1},
+        {"id": "4", "name": "老寿星 Wet Nelly", "grade": "6b+", "ascents": None},
+    ]}]
+    eight = {"routes": [
+        {"name": "Missed Connection", "grade": "7b", "ascents": 16},
+        {"name": "Merry Christmas Birt Bacharach", "grade": "6c+", "ascents": 3},
+        {"name": "Merry Christmas Birt Bacharach", "grade": "8a", "ascents": 50},  # otra vía, grado lejano
+        {"name": "Wet Nelly", "grade": "6b+", "ascents": 4},
+    ]}
+    assert apply(topos, eight)
+    r = {x["id"]: x for x in topos[0]["routes"]}
+    assert r["1"]["ascents"] == 16 and r["1"]["pop"] == 100 and r["1"]["ascents_tc"] == 3
+    assert r["2"]["ascents"] == 3 and r["4"]["ascents"] == 4 and r["4"]["pop"] == 50
+    assert r["3"]["in8a"] is False and r["3"]["ascents"] == 0
+    assert not apply([{"routes": [{"id": "9", "name": "Nada", "grade": "6a"}]}], eight)

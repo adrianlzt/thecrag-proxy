@@ -51,9 +51,9 @@ SCRIPT = r"""
   var FILTERS = [["all", "Todas"], ["pop", "Populares"], ["sent", "Encadenadas"], ["todo", "Populares pendientes"]];
   var filter = (function () { try { return localStorage.getItem("tct-filter") || "all"; } catch (e) { return "all"; } })();
   var redraws = [];
-  // Popular: el tercio más repetido de su croquis (y al menos 3), por ascensiones en theCrag.
+  // Popular: el tercio más repetido de su croquis (y al menos 3), por ascensiones en 8a.nu (o theCrag si 8a.nu no la tiene).
   function markPopular(routes) {
-    var ranked = routes.filter(function (r) { return r.ascents != null; }).sort(function (a, b) { return b.ascents - a.ascents; });
+    var ranked = routes.filter(function (r) { return r.ascents != null && r.ascents > 0; }).sort(function (a, b) { return b.ascents - a.ascents; });
     var n = Math.max(3, Math.ceil(ranked.length / 3));
     ranked.forEach(function (r, i) { r.popular = i < n; });
   }
@@ -128,7 +128,8 @@ SCRIPT = r"""
     }
     t.routes.forEach(function (r) {
       var li = el("li", {}, [el("span", { class: "n", text: r.num || "·" }), el("span", { class: "g", text: r.grade || "" }), el("span", { class: "nm", text: r.name || "" }),
-        el("span", { class: "asc", text: r.ascents != null ? r.ascents + " asc." : "" })]);
+        el("span", { class: "asc", text: r.in8a === false ? "–" : r.ascents != null ? r.ascents + " asc." : "" })]);
+      if (r.in8a === false) li.lastChild.title = "No la encuentro en 8a.nu";
       li.firstChild.style.background = r.sent === "sent" ? "#9be89b" : r.sent === "maybe" ? "#ffe08a" : "#ffd24d";
       if (r.sent === "sent") li.appendChild(el("span", { class: "tct-badge", text: "✓", style: "background:" + COLORS.sent }));
       if (r.sent === "maybe") li.appendChild(el("span", { class: "tct-badge", text: "?", style: "background:" + COLORS.maybe }));
@@ -152,7 +153,8 @@ SCRIPT = r"""
       b.style.background = COLORS[r.sent || "none"];
       info.appendChild(b);
       info.appendChild(el("b", { text: "#" + r.num + " " + r.name }));
-      info.appendChild(document.createTextNode((r.grade || "") + (r.stars ? " " + r.stars : "") + (r.style ? " · " + r.style : "") + (r.ascents != null ? " · " + r.ascents + " ascensiones" : "")));
+      info.appendChild(document.createTextNode((r.grade || "") + (r.stars ? " " + r.stars : "") + (r.style ? " · " + r.style : "") + (r.in8a === false ? " · no está en 8a.nu" : r.ascents != null ? " · " + r.ascents + " ascensiones" + (r.in8a ? " en 8a.nu" : "") : "") +
+        (r.ascents_tc != null ? " (theCrag: " + r.ascents_tc + ")" : "")));
       if (r.sent_info) info.appendChild(document.createTextNode(" · 8a.nu: " + esc(r.sent_info.crag) + " " + esc(r.sent_info.grade) + (r.sent_info.date ? ", " + r.sent_info.date : "")));
       if (r.url) { info.appendChild(document.createTextNode(" ")); info.appendChild(el("a", { href: ORIGIN + r.url, target: "_blank", text: "theCrag ↗" })); }
     }
@@ -221,6 +223,7 @@ SCRIPT = r"""
     container.appendChild(el("div", { class: "tct-msg", text: "Buscando croquis en theCrag…" }));
     var q = new URLSearchParams({ country: opts.country || "", area: opts.area || "", crag: opts.crag || "" });
     if (opts.tc) q.set("tc", opts.tc);
+    if (opts.cragSlug) q.set("crag_slug", opts.cragSlug);   // slug de la escuela en 8a.nu, si la web lo sabe
     fetch(ORIGIN + "/_proxy/topos?" + q.toString()).then(function (r) { return r.json(); }).then(function (d) {
       container.textContent = "";
       if (d.error) {
@@ -246,6 +249,8 @@ SCRIPT = r"""
         var i = el("i"); i.style.background = COLORS[k]; legend.appendChild(i);
         legend.appendChild(document.createTextNode(k === "sent" ? "encadenada (8a.nu)" : k === "maybe" ? "¿misma vía en otra escuela?" : "sin encadenar"));
       });
+      legend.appendChild(document.createTextNode(" · grosor: ascensiones en " + (d.popularity === "8a.nu" ? "8a.nu" : "theCrag")));
+      if (d.crag8a && d.popularity === "8a.nu") { legend.appendChild(document.createTextNode(" (")); legend.appendChild(el("a", { href: d.crag8a.url, target: "_blank", text: d.crag8a.name })); legend.appendChild(document.createTextNode(")")); }
       container.appendChild(legend);
       var bar = el("div", { class: "tct-bar" });
       FILTERS.forEach(function (f) {

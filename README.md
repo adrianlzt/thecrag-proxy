@@ -71,8 +71,12 @@ Ejemplo: https://thecrag.adrianlzt.com/en/climbing/united-states/red-river-gorge
   no tiene, se miran hasta 8 hijos directos (`TOPOS_CHILD_MAX`; `sectors` y `partial` en la respuesta), y con
   `sector=<sectorName de 8a.nu>` solo el hijo con ese nombre. CORS abierto. `/_proxy/topos.js` es el visor para incrustar (`tcTopos.render(el, {country, area,
   crag})`): líneas verdes las encadenadas, naranja el resto, ámbar discontinuo las dudosas; el grosor de la línea es
-  la popularidad relativa de theCrag (`pop`, 0–100 dentro de la escuela, y `ascents`, de «Relative popularity (59) -
-  45 ascents» en la fila de cada vía); número y grado en cada vía; filtros «Todas / Populares / Encadenadas /
+  la popularidad según **8a.nu** (`app/eight.py`): la escuela se busca en 8a.nu por nombre (`cragautocomplete`, o
+  `crag_slug=`/`cragSlug` si la web lo sabe), se listan sus vías con `totalAscents` (API pública
+  `outdoor/v1/web/zlaggables/{cat}/{país}?cragSlug=…`, 150 por página, caché 24 h en la tabla `eight`) y se cruzan por
+  nombre normalizado (sumando variantes de grado ±2); `ascents` son las de 8a.nu, `pop` 0–100 es la raíz de
+  ascensiones/máximo, `in8a=false` si la vía no está, y `ascents_tc` las de theCrag. Si 8a.nu no tiene la escuela o
+  no casa ninguna vía, se usa theCrag («Relative popularity (59) - 45 ascents»); `popularity` dice cuál; número y grado en cada vía; filtros «Todas / Populares / Encadenadas /
   Populares pendientes» (popular = el tercio más repetido de su croquis, mínimo 3; el filtro se recuerda en
   localStorage y atenúa las demás líneas) y lista de vías con ascensiones, ordenada por ellas cuando hay filtro;
   tocar una vía la resalta; ⛶ pantalla completa con pellizco/arrastre; el contenedor se desplaza por sí mismo (75 vh);

@@ -23,6 +23,7 @@ from pathlib import Path
 
 import httpx
 
+from . import eight as eight8a
 from .grades import convert_grade_text
 from .ticks import norm, ticks
 
@@ -290,8 +291,8 @@ class Topos:
 topos = Topos()
 
 
-async def lookup(client: httpx.AsyncClient, country: str, area: str, crag: str, tc: str = "", sector: str = "") -> dict:
-    """Respuesta de /_proxy/topos: escuela, croquis con ✓ y estado."""
+async def lookup(client: httpx.AsyncClient, country: str, area: str, crag: str, tc: str = "", sector: str = "", crag_slug: str = "") -> dict:
+    """Respuesta de /_proxy/topos: escuela, croquis con ✓, ascensiones de 8a.nu y estado."""
     if tc:
         if not re.fullmatch(r"/en/climbing/[a-z0-9/_-]+", tc):
             return {"error": "bad tc"}
@@ -315,5 +316,10 @@ async def lookup(client: httpx.AsyncClient, country: str, area: str, crag: str, 
             m = marks.get(r["id"])
             r["sent"] = m["status"] if m else None
             r["sent_info"] = m
+    # Popularidad: ascensiones en 8a.nu (theCrag de respaldo si 8a.nu no tiene la escuela o no casa ninguna vía).
+    e8 = await eight8a.routes(client, _db(), country, area, crag, crag_slug) if crag else None
+    data["topos"] = [dict(t, routes=[dict(r) for r in t["routes"]]) for t in data["topos"]]
+    by8a = eight8a.apply(data["topos"], e8)
     return {"crag": {"path": found["path"], "name": data.get("name") or found.get("name"), "url": UPSTREAM + found["path"]},
-            "topos": data["topos"], "sectors": data["sectors"], "partial": data["partial"]}
+            "topos": data["topos"], "sectors": data["sectors"], "partial": data["partial"],
+            "popularity": "8a.nu" if by8a else "thecrag", "crag8a": (e8 or {}).get("crag")}
