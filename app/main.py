@@ -27,6 +27,8 @@ from starlette.routing import Route
 from .fullscreen import inject as inject_fullscreen
 from .fullscreen_grades import inject as inject_fullscreen_grades
 from .ticks import inject as inject_ticks, ticks
+from .topos import lookup as topos_lookup
+from .topos_js import SCRIPT as TOPOS_JS
 from .grades import convert_html
 
 UPSTREAM = os.environ.get("UPSTREAM", "https://www.thecrag.com").rstrip("/")
@@ -212,6 +214,24 @@ async def ticks_api(request: Request) -> Response:
     return JSONResponse(ticks.match(routes, [str(p) for p in places]), headers={"cache-control": "no-store"})
 
 
+# Croquis para otras webs (el proxy de 8a.nu): ver app/topos.py. CORS abierto: solo lee páginas públicas de theCrag.
+_CORS = {"access-control-allow-origin": "*", "access-control-allow-methods": "GET, OPTIONS", "cache-control": "no-store"}
+
+
+async def topos_api(request: Request) -> Response:
+    if request.method == "OPTIONS":
+        return Response(status_code=204, headers=_CORS)
+    q = request.query_params
+    if not (q.get("crag") or q.get("tc")):
+        return JSONResponse({"error": "falta crag"}, status_code=400, headers=_CORS)
+    data = await topos_lookup(request.app.state.client, q.get("country", ""), q.get("area", ""), q.get("crag", ""), q.get("tc", ""))
+    return JSONResponse(data, headers=_CORS)
+
+
+async def topos_js(_: Request) -> Response:
+    return Response(TOPOS_JS, media_type="text/javascript", headers={"cache-control": "public, max-age=600", **_CORS})
+
+
 async def healthz(_: Request) -> Response:
     return PlainTextResponse("ok")
 
@@ -312,6 +332,8 @@ app = Starlette(
         Route("/healthz", healthz),
         Route("/_tcstatic/cids/{name}", maps_js),
         Route("/_proxy/ticks", ticks_api, methods=["POST"]),
+        Route("/_proxy/topos", topos_api, methods=["GET", "OPTIONS"]),
+        Route("/_proxy/topos.js", topos_js),
         Route("/{path:path}", proxy, methods=METHODS),
     ],
     lifespan=lifespan,

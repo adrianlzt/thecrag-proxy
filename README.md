@@ -61,6 +61,16 @@ Ejemplo: https://thecrag.adrianlzt.com/en/climbing/united-states/red-river-gorge
   cruce es por nombre normalizado (sin acentos, solo latino, sin artículo inicial) y da `sent` si además coincide la
   escuela/sector/área de 8a.nu o el grado (±1), o `maybe` si solo el nombre. Pinta ✓ verde (o «?» ámbar) junto al tick
   de cada fila y en la etiqueta del croquis. No distingue a vista / flash / encadene; excluye proyectos.
+- **Croquis para el proxy de 8a.nu** (`app/topos.py`, `app/topos_js.py`): `GET /_proxy/topos?country=china&area=Yangshuo&crag=Wine%20Bottle`
+  (los nombres como los da 8a.nu; `tc=/en/climbing/…` fija la página a mano) devuelve la escuela de theCrag y sus
+  croquis: foto, tamaño, y cada vía con número, nombre, grado en francés, puntos del trazo y `sent` (`sent`/`maybe`/
+  `null`, con `ticks.match`). La escuela se busca bajando por la jerarquía (país → área por nombre → escuela; si no
+  está, subáreas en anchura), con cada página guardada para siempre en SQLite (`TOPOS_DB`), ≥4 s entre páginas
+  (`TOPOS_PACE`), 20 páginas por búsqueda como mucho y 10 min de pausa si theCrag corta. Los croquis de una escuela
+  se guardan 72 h. CORS abierto. `/_proxy/topos.js` es el visor para incrustar (`tcTopos.render(el, {country, area,
+  crag})`): líneas verdes las encadenadas, naranja el resto, ámbar discontinuo las dudosas; número y grado en cada
+  vía; tocar una vía la resalta; ⛶ pantalla completa con pellizco/arrastre; si no encuentra la escuela deja pegar la
+  URL de theCrag. Las fotos se cargan de image.thecrag.com directamente.
 
 Limitaciones: solo YDS y V (UIAA, británico, Ewbank… se quedan como estén); el contenido que el JS de theCrag pinte
 a partir de JSON sin pasar por el HTML seguirá en el sistema original; el login con Google/Facebook vuelve a

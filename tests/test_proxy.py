@@ -214,3 +214,36 @@ def test_ticks_match_y_endpoint():
         r = c.post("/_proxy/ticks", json={"routes": [{"id": "1", "name": "Slack", "grade": "6a+"}], "places": ["Wine Bottle"]})
         assert r.status_code == 200 and r.json()["1"]["status"] == "sent"
         assert c.post("/_proxy/ticks", json={"routes": "x"}).status_code == 400
+
+
+def test_topos_parse():
+    from pathlib import Path
+
+    from app.topos import page_name, parse_links, parse_topos
+
+    fx = Path(__file__).parent / "fixtures"
+    links = parse_links((fx / "corridor-entrance.html").read_text())
+    names = {l["path"]: l["name"] for l in links}
+    assert names["/en/climbing/china/yangshuo/wine-bottle"] == "酒瓶山 Wine Bottle"  # sin el « / 2.4»
+    assert not any("/route/" in p or p.endswith("/locate") for p in names)
+    page = (fx / "wine-bottle.html").read_text()
+    topos = parse_topos(page, "/en/climbing/china/yangshuo/wine-bottle")
+    assert len(topos) == 1 and topos[0]["image"].startswith("https://image.thecrag.com/2878x1282/")
+    assert topos[0]["width"] == 650 and topos[0]["heading"] == "主墙 Main Wall"
+    r = topos[0]["routes"][0]
+    assert r["name"] == "老寿星 Ya Mummas as Old as Dirt" and r["grade"] == "6b+" and r["points"][-1]["t"] == "belay"
+    assert page_name(page).startswith("酒瓶山 Wine Bottle")
+
+
+def test_topos_endpoint(client, monkeypatch):
+    import app.topos as tp
+
+    async def fake_lookup(client_, country, area, crag, tc=""):
+        return {"crag": {"path": "/en/climbing/x/y", "name": "Y"}, "topos": []}
+
+    monkeypatch.setattr(main, "topos_lookup", fake_lookup)
+    r = client.get("/_proxy/topos?country=china&area=Yangshuo&crag=Wine+Bottle")
+    assert r.status_code == 200 and r.headers["access-control-allow-origin"] == "*" and r.json()["crag"]["name"] == "Y"
+    assert client.get("/_proxy/topos").status_code == 400
+    js = client.get("/_proxy/topos.js")
+    assert js.status_code == 200 and "tcTopos" in js.text
