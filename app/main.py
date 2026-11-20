@@ -229,7 +229,7 @@ async def topos_api(request: Request) -> Response:
 
 
 async def topos_js(_: Request) -> Response:
-    return Response(TOPOS_JS, media_type="text/javascript", headers={"cache-control": "public, max-age=600", **_CORS})
+    return Response(TOPOS_JS, media_type="text/javascript", headers={"cache-control": "public, max-age=60", **_CORS})
 
 
 async def healthz(_: Request) -> Response:

@@ -23,7 +23,7 @@ SCRIPT = r"""
     ".tct-topo{margin:0 0 14px;border:1px solid #ddd;border-radius:8px;overflow:hidden;background:#111}" +
     ".tct-head{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f4f4f4;color:#222;font-weight:600}" +
     ".tct-head .sp{flex:1}.tct-head button{border:1px solid #bbb;background:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:14px}" +
-    ".tct-wrap{position:relative;overflow:hidden;touch-action:pan-y pinch-zoom}.tct-topo:fullscreen .tct-wrap{touch-action:none}.tct-wrap .zoom{position:relative;width:100%}" +
+    ".tct-wrap{position:relative;overflow:hidden;touch-action:pan-y}.tct-wrap .zoom{position:relative;width:100%}" +
     ".tct-wrap img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:fill;user-select:none;-webkit-user-drag:none;background:#333}" +
     ".tct-wrap svg{position:absolute;left:0;top:0;width:100%;height:100%}" +
     ".tct-wrap .r{cursor:pointer}.tct-wrap .r .ln{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}" +
@@ -40,8 +40,8 @@ SCRIPT = r"""
     ".tct-list .g{min-width:34px;font-weight:bold}.tct-list .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
     ".tct-msg{padding:10px;background:#fff8e1;border:1px solid #f0d080;border-radius:6px}" +
     ".tct-msg input{width:100%;box-sizing:border-box;margin:6px 0;padding:6px;font-size:14px}" +
-    ".tct-topo:fullscreen{display:flex;flex-direction:column;background:#000}.tct-topo:fullscreen .tct-wrap{flex:1;display:flex;align-items:center;justify-content:center}" +
-    ".tct-topo:fullscreen .tct-wrap .zoom{transform-origin:0 0;max-height:100%}";
+    ".tct-topo:fullscreen{display:block;overflow:auto;background:#000;color:#ddd}.tct-topo:fullscreen .tct-head{background:#222;color:#ddd}" +
+    ".tct-topo:fullscreen .tct-wrap .zoom{transform-origin:0 0}";
   var COLORS = { sent: "#1fbf3f", maybe: "#e6a700", none: "#ff8c1a" };
 
   function el(tag, attrs, children) {
@@ -140,7 +140,10 @@ SCRIPT = r"""
   function pinch(wrap, zoom, card) {
     var s = 1, tx = 0, ty = 0, pinchD = null, pan = null, drag = null;
     function on() { return document.fullscreenElement === card; }
-    function apply() { zoom.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + s + ")"; }
+    function apply() {
+      zoom.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + s + ")";
+      wrap.style.touchAction = s > 1 ? "none" : "pan-y";   // sin ampliar, un dedo hace scroll de la página
+    }
     function dist(a, b) { var dx = a.clientX - b.clientX, dy = a.clientY - b.clientY; return Math.sqrt(dx * dx + dy * dy) || 1; }
     function zoomAt(cx, cy, f) {
       var ns = Math.max(1, Math.min(8, s * f)); if (ns === s) return;
