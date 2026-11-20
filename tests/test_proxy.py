@@ -238,7 +238,7 @@ def test_topos_parse():
 def test_topos_endpoint(client, monkeypatch):
     import app.topos as tp
 
-    async def fake_lookup(client_, country, area, crag, tc=""):
+    async def fake_lookup(client_, country, area, crag, tc="", sector=""):
         return {"crag": {"path": "/en/climbing/x/y", "name": "Y"}, "topos": []}
 
     monkeypatch.setattr(main, "topos_lookup", fake_lookup)

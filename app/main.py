@@ -224,7 +224,7 @@ async def topos_api(request: Request) -> Response:
     q = request.query_params
     if not (q.get("crag") or q.get("tc")):
         return JSONResponse({"error": "falta crag"}, status_code=400, headers=_CORS)
-    data = await topos_lookup(request.app.state.client, q.get("country", ""), q.get("area", ""), q.get("crag", ""), q.get("tc", ""))
+    data = await topos_lookup(request.app.state.client, q.get("country", ""), q.get("area", ""), q.get("crag", ""), q.get("tc", ""), q.get("sector", ""))
     return JSONResponse(data, headers=_CORS)
 
 

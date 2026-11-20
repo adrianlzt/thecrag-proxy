@@ -67,7 +67,9 @@ Ejemplo: https://thecrag.adrianlzt.com/en/climbing/united-states/red-river-gorge
   `null`, con `ticks.match`). La escuela se busca bajando por la jerarquía (país → área por nombre → escuela; si no
   está, subáreas en anchura), con cada página guardada para siempre en SQLite (`TOPOS_DB`), ≥4 s entre páginas
   (`TOPOS_PACE`), 20 páginas por búsqueda como mucho y 10 min de pausa si theCrag corta. Los croquis de una escuela
-  se guardan 72 h. CORS abierto. `/_proxy/topos.js` es el visor para incrustar (`tcTopos.render(el, {country, area,
+  se guardan 72 h. En theCrag los croquis suelen estar en los sectores, no en la escuela: si la página de la escuela
+  no tiene, se miran hasta 8 hijos directos (`TOPOS_CHILD_MAX`; `sectors` y `partial` en la respuesta), y con
+  `sector=<sectorName de 8a.nu>` solo el hijo con ese nombre. CORS abierto. `/_proxy/topos.js` es el visor para incrustar (`tcTopos.render(el, {country, area,
   crag})`): líneas verdes las encadenadas, naranja el resto, ámbar discontinuo las dudosas; número y grado en cada
   vía; tocar una vía la resalta; ⛶ pantalla completa con pellizco/arrastre; si no encuentra la escuela deja pegar la
   URL de theCrag. Las fotos se cargan de image.thecrag.com directamente.

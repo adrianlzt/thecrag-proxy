@@ -34,6 +34,7 @@ PACE = float(os.environ.get("TOPOS_PACE", "4"))
 MAX_PAGES = int(os.environ.get("TOPOS_MAX_PAGES", "20"))
 COOLDOWN = float(os.environ.get("TOPOS_COOLDOWN", "600"))  # tras un corte de theCrag, ni una petición en este tiempo
 TTL = float(os.environ.get("TOPOS_TTL", "72")) * 3600
+CHILD_MAX = int(os.environ.get("TOPOS_CHILD_MAX", "8"))  # sectores hijos que se miran si la escuela no tiene croquis
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -221,21 +222,49 @@ class Topos:
         db.commit()
 
     async def topos(self, client: httpx.AsyncClient, path: str) -> dict:
+        """Croquis de una página y sus hijos directos (sectores), de la caché o de theCrag."""
         db = _db()
         row = db.execute("select at, data from topos where path=?", (path,)).fetchone()
         if row and time.time() - row[0] < TTL:
             return json.loads(row[1])
         page = await self.fetch(client, path)
-        data = {"name": page_name(page), "topos": parse_topos(page, path)}
+        children = [l for l in parse_links(page) if l["path"].startswith(path + "/")]
+        data = {"name": page_name(page), "topos": parse_topos(page, path), "children": children}
         db.execute("insert or replace into topos values (?,?,?)", (path, time.time(), json.dumps(data)))
         db.commit()
         return data
+
+    async def with_sectors(self, client: httpx.AsyncClient, path: str, sector: str = "") -> dict:
+        """Los croquis de la escuela; si pide un sector, los de ese hijo; si la escuela no tiene (en theCrag suelen
+        estar en los sectores), los de hasta CHILD_MAX hijos. `partial` si theCrag cortó a medias."""
+        data = await self.topos(client, path)
+        out = {"name": data["name"], "topos": list(data["topos"]), "sectors": [], "partial": False}
+        children = data.get("children") or []
+        want = norm(sector)
+        if want:
+            picked = [c for c in children if norm(c["name"]) == want] or [c for c in children if want in norm(c["name"]) or norm(c["name"]) in want]
+        else:
+            picked = [] if data["topos"] else children[:CHILD_MAX]
+        for c in picked:
+            try:
+                sub = await self.topos(client, c["path"])
+            except Blocked:
+                out["partial"] = True
+                break
+            for t in sub["topos"]:
+                t = dict(t)
+                t["heading"] = c["name"] + (" · " + t["heading"] if t["heading"] and norm(t["heading"]) != norm(c["name"]) else "")
+                out["topos"].append(t)
+            out["sectors"].append({"name": c["name"], "path": c["path"], "topos": len(sub["topos"])})
+        if want and picked:
+            out["topos"] = [t for t in out["topos"] if t not in data["topos"]] or out["topos"]
+        return out
 
 
 topos = Topos()
 
 
-async def lookup(client: httpx.AsyncClient, country: str, area: str, crag: str, tc: str = "") -> dict:
+async def lookup(client: httpx.AsyncClient, country: str, area: str, crag: str, tc: str = "", sector: str = "") -> dict:
     """Respuesta de /_proxy/topos: escuela, croquis con ✓ y estado."""
     if tc:
         if not re.fullmatch(r"/en/climbing/[a-z0-9/_-]+", tc):
@@ -250,10 +279,10 @@ async def lookup(client: httpx.AsyncClient, country: str, area: str, crag: str, 
     if not found:
         return {"error": "not_found", "crag": crag, "area": area, "country": country}
     try:
-        data = await topos.topos(client, found["path"])
+        data = await topos.with_sectors(client, found["path"], sector)
     except Blocked as e:
         return {"error": "thecrag_blocked", "detail": str(e), "crag": found}
-    places = [crag, area, country, found.get("name") or "", data.get("name") or ""]
+    places = [crag, area, country, sector, found.get("name") or "", data.get("name") or ""] + [x["name"] for x in data["sectors"]]
     for t in data["topos"]:
         marks = ticks.match([{"id": r["id"], "name": r["name"], "grade": r["grade"]} for r in t["routes"]], places + [t["heading"]])
         for r in t["routes"]:
@@ -261,4 +290,4 @@ async def lookup(client: httpx.AsyncClient, country: str, area: str, crag: str, 
             r["sent"] = m["status"] if m else None
             r["sent_info"] = m
     return {"crag": {"path": found["path"], "name": data.get("name") or found.get("name"), "url": UPSTREAM + found["path"]},
-            "topos": data["topos"]}
+            "topos": data["topos"], "sectors": data["sectors"], "partial": data["partial"]}
