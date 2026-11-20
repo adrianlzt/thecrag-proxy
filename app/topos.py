@@ -245,7 +245,15 @@ class Topos:
             cached = json.loads(row[1])
             if cached.get("v") == CACHE_V:  # las entradas de versiones anteriores se vuelven a pedir
                 return cached
-        page = await self.fetch(client, path)
+        try:
+            page = await self.fetch(client, path)
+        except Blocked:
+            if row:  # theCrag corta: mejor lo guardado de una versión anterior que nada
+                stale = json.loads(row[1])
+                stale["stale"] = True
+                stale.setdefault("children", [])
+                return stale
+            raise
         children = [l for l in parse_links(page) if l["path"].startswith(path + "/")]
         data = {"v": CACHE_V, "name": page_name(page), "topos": parse_topos(page, path), "children": children}
         db.execute("insert or replace into topos values (?,?,?)", (path, time.time(), json.dumps(data)))
@@ -256,7 +264,7 @@ class Topos:
         """Los croquis de la escuela; si pide un sector, los de ese hijo; si la escuela no tiene (en theCrag suelen
         estar en los sectores), los de hasta CHILD_MAX hijos. `partial` si theCrag cortó a medias."""
         data = await self.topos(client, path)
-        out = {"name": data["name"], "topos": list(data["topos"]), "sectors": [], "partial": False}
+        out = {"name": data["name"], "topos": list(data["topos"]), "sectors": [], "partial": bool(data.get("stale"))}
         children = data.get("children") or []
         want = norm(sector)
         if want:
