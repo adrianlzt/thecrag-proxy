@@ -226,7 +226,9 @@ class Topos:
         db = _db()
         row = db.execute("select at, data from topos where path=?", (path,)).fetchone()
         if row and time.time() - row[0] < TTL:
-            return json.loads(row[1])
+            cached = json.loads(row[1])
+            if "children" in cached:  # las entradas de antes de guardar los hijos se vuelven a pedir
+                return cached
         page = await self.fetch(client, path)
         children = [l for l in parse_links(page) if l["path"].startswith(path + "/")]
         data = {"name": page_name(page), "topos": parse_topos(page, path), "children": children}
