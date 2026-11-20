@@ -19,7 +19,9 @@ SCRIPT = r"""
     var s = document.currentScript && document.currentScript.src;
     try { return new URL(s).origin; } catch (e) { return location.origin; }
   })();
-  var CSS = ".tct{font:14px/1.4 system-ui,sans-serif;color:#222}" +
+  // El contenedor se desplaza por sí mismo (75 % de la pantalla): en la página de 8a.nu el scroll de la página no
+  // llega al contenido de la tarjeta en el móvil, así que no se depende de él.
+  var CSS = ".tct{font:14px/1.4 system-ui,sans-serif;color:#222;max-height:75vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}" +
     ".tct-topo{margin:0 0 14px;border:1px solid #ddd;border-radius:8px;overflow:hidden;background:#111}" +
     ".tct-head{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f4f4f4;color:#222;font-weight:600}" +
     ".tct-head .sp{flex:1}.tct-head button{border:1px solid #bbb;background:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:14px}" +
@@ -34,13 +36,13 @@ SCRIPT = r"""
     ".tct-info{padding:6px 10px;background:#fff;color:#222;min-height:20px;font-size:13px}" +
     ".tct-info b{margin-right:6px}.tct-badge{display:inline-block;padding:0 6px;border-radius:3px;color:#fff;font-weight:bold;margin-right:6px}" +
     ".tct-legend{font-size:12px;color:#555;margin:4px 0 10px}.tct-legend i{display:inline-block;width:14px;height:4px;border-radius:2px;vertical-align:middle;margin:0 4px 0 10px}" +
-    ".tct-list{list-style:none;margin:0;padding:0;background:#fff;border-top:1px solid #eee;max-height:220px;overflow:auto}" +
+    ".tct-list{list-style:none;margin:0;padding:0;background:#fff;border-top:1px solid #eee}" +
     ".tct-list li{display:flex;align-items:center;gap:8px;padding:4px 10px;border-bottom:1px solid #f2f2f2;cursor:pointer;font-size:13px}" +
     ".tct-list li.sel{background:#eef7ff}.tct-list .n{min-width:22px;height:18px;line-height:18px;text-align:center;border-radius:3px;font-weight:bold;font-size:11px;color:#000}" +
     ".tct-list .g{min-width:34px;font-weight:bold}.tct-list .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
     ".tct-msg{padding:10px;background:#fff8e1;border:1px solid #f0d080;border-radius:6px}" +
     ".tct-msg input{width:100%;box-sizing:border-box;margin:6px 0;padding:6px;font-size:14px}" +
-    ".tct-topo:fullscreen{display:block;overflow:auto;background:#000;color:#ddd}.tct-topo:fullscreen .tct-head{background:#222;color:#ddd}" +
+    ".tct-topo:fullscreen{display:block;overflow:auto;background:#000;color:#ddd;touch-action:pan-y}.tct-topo:fullscreen .tct-head{background:#222;color:#ddd}" +
     ".tct-topo:fullscreen .tct-wrap .zoom{transform-origin:0 0}";
   var COLORS = { sent: "#1fbf3f", maybe: "#e6a700", none: "#ff8c1a" };
 
