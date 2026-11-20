@@ -70,9 +70,13 @@ Ejemplo: https://thecrag.adrianlzt.com/en/climbing/united-states/red-river-gorge
   se guardan 72 h. En theCrag los croquis suelen estar en los sectores, no en la escuela: si la página de la escuela
   no tiene, se miran hasta 8 hijos directos (`TOPOS_CHILD_MAX`; `sectors` y `partial` en la respuesta), y con
   `sector=<sectorName de 8a.nu>` solo el hijo con ese nombre. CORS abierto. `/_proxy/topos.js` es el visor para incrustar (`tcTopos.render(el, {country, area,
-  crag})`): líneas verdes las encadenadas, naranja el resto, ámbar discontinuo las dudosas; número y grado en cada
-  vía; tocar una vía la resalta; ⛶ pantalla completa con pellizco/arrastre; si no encuentra la escuela deja pegar la
-  URL de theCrag. Las fotos se cargan de image.thecrag.com directamente.
+  crag})`): líneas verdes las encadenadas, naranja el resto, ámbar discontinuo las dudosas; el grosor de la línea es
+  la popularidad relativa de theCrag (`pop`, 0–100 dentro de la escuela, y `ascents`, de «Relative popularity (59) -
+  45 ascents» en la fila de cada vía); número y grado en cada vía; filtros «Todas / Populares / Encadenadas /
+  Populares pendientes» (popular = el tercio más repetido de su croquis, mínimo 3; el filtro se recuerda en
+  localStorage y atenúa las demás líneas) y lista de vías con ascensiones, ordenada por ellas cuando hay filtro;
+  tocar una vía la resalta; ⛶ pantalla completa con pellizco/arrastre; el contenedor se desplaza por sí mismo (75 vh);
+  si no encuentra la escuela deja pegar la URL de theCrag. Las fotos se cargan de image.thecrag.com directamente.
 
 Limitaciones: solo YDS y V (UIAA, británico, Ewbank… se quedan como estén); el contenido que el JS de theCrag pinte
 a partir de JSON sin pasar por el HTML seguirá en el sistema original; el login con Google/Facebook vuelve a

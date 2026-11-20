@@ -232,6 +232,7 @@ def test_topos_parse():
     assert topos[0]["width"] == 650 and topos[0]["heading"] == "主墙 Main Wall"
     r = topos[0]["routes"][0]
     assert r["name"] == "老寿星 Ya Mummas as Old as Dirt" and r["grade"] == "6b+" and r["points"][-1]["t"] == "belay"
+    assert r["pop"] == 59 and r["ascents"] == 45  # «Relative popularity (59) - 45 ascents»
     assert page_name(page).startswith("酒瓶山 Wine Bottle")
 
 

@@ -40,11 +40,30 @@ SCRIPT = r"""
     ".tct-list li{display:flex;align-items:center;gap:8px;padding:4px 10px;border-bottom:1px solid #f2f2f2;cursor:pointer;font-size:13px}" +
     ".tct-list li.sel{background:#eef7ff}.tct-list .n{min-width:22px;height:18px;line-height:18px;text-align:center;border-radius:3px;font-weight:bold;font-size:11px;color:#000}" +
     ".tct-list .g{min-width:34px;font-weight:bold}.tct-list .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+    ".tct-bar{position:sticky;top:0;z-index:2;display:flex;gap:6px;flex-wrap:wrap;padding:6px 0;background:#fff}" +
+    ".tct-bar button{border:1px solid #bbb;background:#fff;border-radius:14px;padding:3px 10px;font-size:13px;cursor:pointer}.tct-bar button.on{background:#1f9d3a;border-color:#1f9d3a;color:#fff}" +
+    ".tct-wrap .r.off{opacity:.18}.tct-list li.off{display:none}.tct-list .asc{min-width:44px;text-align:right;color:#666;font-size:12px}" +
     ".tct-msg{padding:10px;background:#fff8e1;border:1px solid #f0d080;border-radius:6px}" +
     ".tct-msg input{width:100%;box-sizing:border-box;margin:6px 0;padding:6px;font-size:14px}" +
     ".tct-topo:fullscreen{display:block;overflow:auto;background:#000;color:#ddd;touch-action:pan-y}.tct-topo:fullscreen .tct-head{background:#222;color:#ddd}" +
     ".tct-topo:fullscreen .tct-wrap .zoom{transform-origin:0 0}";
   var COLORS = { sent: "#1fbf3f", maybe: "#e6a700", none: "#ff8c1a" };
+  var FILTERS = [["all", "Todas"], ["pop", "Populares"], ["sent", "Encadenadas"], ["todo", "Populares pendientes"]];
+  var filter = (function () { try { return localStorage.getItem("tct-filter") || "all"; } catch (e) { return "all"; } })();
+  var redraws = [];
+  // Popular: el tercio más repetido de su croquis (y al menos 3), por ascensiones en theCrag.
+  function markPopular(routes) {
+    var ranked = routes.filter(function (r) { return r.ascents != null; }).sort(function (a, b) { return b.ascents - a.ascents; });
+    var n = Math.max(3, Math.ceil(ranked.length / 3));
+    ranked.forEach(function (r, i) { r.popular = i < n; });
+  }
+  function passes(r) {
+    if (filter === "pop") return !!r.popular;
+    if (filter === "sent") return r.sent === "sent";
+    if (filter === "todo") return !!r.popular && r.sent !== "sent";
+    return true;
+  }
+  function lineWidth(r) { return r.pop == null ? 3 : 1.5 + 5.5 * Math.min(100, r.pop) / 100; }   // grosor = popularidad
 
   function el(tag, attrs, children) {
     var e = document.createElement(tag);
@@ -65,13 +84,14 @@ SCRIPT = r"""
     var svg = svgEl("svg", { viewBox: "0 0 " + w + " " + h, preserveAspectRatio: "none" });
     var info = el("div", { class: "tct-info" });
     var groups = [];
+    markPopular(t.routes);
     var sorted = t.routes.slice().sort(function (a, b) { return (a.sent === "sent") - (b.sent === "sent"); }); // las encadenadas, encima
     sorted.forEach(function (r) {
-      var color = COLORS[r.sent || "none"] || COLORS.none;
+      var color = COLORS[r.sent || "none"] || COLORS.none, lw = lineWidth(r);
       var pts = r.points.map(function (p) { return p.x + "," + p.y; }).join(" ");
       var g = svgEl("g", { class: "r" });
-      g.appendChild(svgEl("polyline", { class: "halo", points: pts }));
-      var ln = svgEl("polyline", { class: "ln", points: pts, stroke: color });
+      g.appendChild(svgEl("polyline", { class: "halo", points: pts, "stroke-width": lw + 2 }));
+      var ln = svgEl("polyline", { class: "ln", points: pts, stroke: color, "stroke-width": lw });
       if (r.sent === "maybe") ln.setAttribute("stroke-dasharray", "6 3");
       g.appendChild(ln);
       r.points.forEach(function (p) {
@@ -99,14 +119,27 @@ SCRIPT = r"""
     });
     // Lista de vías del croquis: para saber cuál es cuál sin tocar la foto; tocar una la resalta.
     var list = el("ul", { class: "tct-list" });
-    t.routes.slice().sort(function (a, b) { return (parseInt(a.num, 10) || 0) - (parseInt(b.num, 10) || 0); }).forEach(function (r) {
-      var li = el("li", {}, [el("span", { class: "n", text: r.num || "·" }), el("span", { class: "g", text: r.grade || "" }), el("span", { class: "nm", text: r.name || "" })]);
+    function fillList() {
+      list.textContent = "";
+      var rows = t.routes.slice();
+      if (filter === "all") rows.sort(function (a, b) { return (parseInt(a.num, 10) || 0) - (parseInt(b.num, 10) || 0); });
+      else rows.sort(function (a, b) { return (b.ascents || 0) - (a.ascents || 0); });   // con filtro, las más repetidas primero
+      rows.forEach(function (r) { list.appendChild(r._li); });
+    }
+    t.routes.forEach(function (r) {
+      var li = el("li", {}, [el("span", { class: "n", text: r.num || "·" }), el("span", { class: "g", text: r.grade || "" }), el("span", { class: "nm", text: r.name || "" }),
+        el("span", { class: "asc", text: r.ascents != null ? r.ascents + " asc." : "" })]);
       li.firstChild.style.background = r.sent === "sent" ? "#9be89b" : r.sent === "maybe" ? "#ffe08a" : "#ffd24d";
       if (r.sent === "sent") li.appendChild(el("span", { class: "tct-badge", text: "✓", style: "background:" + COLORS.sent }));
       if (r.sent === "maybe") li.appendChild(el("span", { class: "tct-badge", text: "?", style: "background:" + COLORS.maybe }));
       li.addEventListener("click", function () { select(r, r._g); });
-      r._li = li; list.appendChild(li);
+      r._li = li;
     });
+    function applyFilter() {
+      t.routes.forEach(function (r) { var ok = passes(r); if (r._g) r._g.classList.toggle("off", !ok); r._li.classList.toggle("off", !ok); });
+      fillList();
+    }
+    applyFilter(); redraws.push(applyFilter);
     function select(r, g) {
       var same = g.classList.contains("sel");
       groups.forEach(function (x) { x.classList.remove("sel"); x.classList.toggle("dim", !same && x !== g); });
@@ -119,7 +152,7 @@ SCRIPT = r"""
       b.style.background = COLORS[r.sent || "none"];
       info.appendChild(b);
       info.appendChild(el("b", { text: "#" + r.num + " " + r.name }));
-      info.appendChild(document.createTextNode((r.grade || "") + (r.stars ? " " + r.stars : "") + (r.style ? " · " + r.style : "")));
+      info.appendChild(document.createTextNode((r.grade || "") + (r.stars ? " " + r.stars : "") + (r.style ? " · " + r.style : "") + (r.ascents != null ? " · " + r.ascents + " ascensiones" : "")));
       if (r.sent_info) info.appendChild(document.createTextNode(" · 8a.nu: " + esc(r.sent_info.crag) + " " + esc(r.sent_info.grade) + (r.sent_info.date ? ", " + r.sent_info.date : "")));
       if (r.url) { info.appendChild(document.createTextNode(" ")); info.appendChild(el("a", { href: ORIGIN + r.url, target: "_blank", text: "theCrag ↗" })); }
     }
@@ -214,6 +247,20 @@ SCRIPT = r"""
         legend.appendChild(document.createTextNode(k === "sent" ? "encadenada (8a.nu)" : k === "maybe" ? "¿misma vía en otra escuela?" : "sin encadenar"));
       });
       container.appendChild(legend);
+      var bar = el("div", { class: "tct-bar" });
+      FILTERS.forEach(function (f) {
+        var b = el("button", { type: "button", text: f[1] });
+        if (f[0] === filter) b.classList.add("on");
+        b.addEventListener("click", function () {
+          filter = f[0];
+          try { localStorage.setItem("tct-filter", filter); } catch (e) {}
+          bar.querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x === b); });
+          redraws.forEach(function (fn) { fn(); });
+        });
+        bar.appendChild(b);
+      });
+      container.appendChild(bar);
+      redraws = [];
       if (!d.topos.length) container.appendChild(el("div", { class: "tct-msg", text: "theCrag no tiene croquis de esta escuela." }));
       d.topos.forEach(function (t) { container.appendChild(drawTopo(t, opts)); });
       if (opts.onLoad) opts.onLoad(d);

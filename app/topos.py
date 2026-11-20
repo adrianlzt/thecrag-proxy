@@ -35,7 +35,7 @@ MAX_PAGES = int(os.environ.get("TOPOS_MAX_PAGES", "20"))
 COOLDOWN = float(os.environ.get("TOPOS_COOLDOWN", "600"))  # tras un corte de theCrag, ni una petición en este tiempo
 TTL = float(os.environ.get("TOPOS_TTL", "72")) * 3600
 CHILD_MAX = int(os.environ.get("TOPOS_CHILD_MAX", "8"))
-CACHE_V = 2  # formato de la caché de croquis: subir cuando cambie parse_topos  # sectores hijos que se miran si la escuela no tiene croquis
+CACHE_V = 3  # formato de la caché de croquis: subir cuando cambie parse_topos  # sectores hijos que se miran si la escuela no tiene croquis
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -54,6 +54,8 @@ _HEAD = re.compile(r'<span class="primary-node-name">([^<]*)</span>')
 _TITLE = re.compile(r"<title>(.*?)</title>", re.S)
 _H1 = re.compile(r"<h1[^>]*>.*?<span class=\"primary-node-name\">([^<]*)</span>", re.S)
 _BLOCKED = ("Attention Required", "swamp.processing.thecrag.com", "You are unable to access")
+# Popularidad de cada vía en su fila: «Relative popularity (59) - 45 ascents» (0–100 dentro de la escuela, y ascensiones).
+_POP = re.compile(r'route/(\d+)/ascents"[^>]*title="Relative popularity \((\d+)\) - ([\d,]+) ascents?"')
 
 
 class Blocked(Exception):
@@ -87,8 +89,14 @@ def parse_links(page_html: str) -> list[dict]:
     return out
 
 
+def parse_pops(page_html: str) -> dict[str, tuple[int, int]]:
+    """id de vía → (popularidad relativa 0–100, ascensiones) según theCrag."""
+    return {rid: (int(pop), int(asc.replace(",", ""))) for rid, pop, asc in _POP.findall(page_html)}
+
+
 def parse_topos(page_html: str, page_path: str) -> list[dict]:
     topos = []
+    pops = parse_pops(page_html)
     for m in _TOPO.finditer(page_html):
         attrs = dict(_ATTR.findall(m.group(1)))
         try:
@@ -116,8 +124,10 @@ def parse_topos(page_html: str, page_path: str) -> list[dict]:
                     except ValueError:
                         pass
             if pts:
+                pop = pops.get(str(r.get("id")))
                 routes.append({
                     "id": str(r.get("id")), "num": str(r.get("num") or ""), "name": html.unescape(str(r.get("name") or "")),
+                    "pop": pop[0] if pop else None, "ascents": pop[1] if pop else None,
                     "grade": convert_grade_text(str(r.get("grade") or "")), "stars": r.get("stars") or "",
                     "style": r.get("style") or "", "url": r.get("url") or "", "points": pts,
                 })
