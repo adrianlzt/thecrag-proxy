@@ -28,9 +28,9 @@ SCRIPT = r"""
     ".tct-wrap{position:relative;overflow:hidden;touch-action:pan-y}.tct-wrap .zoom{position:relative;width:100%}" +
     ".tct-wrap img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:fill;user-select:none;-webkit-user-drag:none;background:#333}" +
     ".tct-wrap svg{position:absolute;left:0;top:0;width:100%;height:100%}" +
-    ".tct-wrap .r{cursor:pointer}.tct-wrap .r .ln{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}" +
-    ".tct-wrap .r .halo{fill:none;stroke:#fff;stroke-width:5;stroke-linejoin:round;stroke-linecap:round;opacity:.8}" +
-    ".tct-wrap .r.sel .ln{stroke-width:5}.tct-wrap .r.dim{opacity:.35}" +
+    ".tct-wrap .r{cursor:pointer}.tct-wrap .r .ln{fill:none;stroke-linejoin:round;stroke-linecap:round}" +
+    ".tct-wrap .r .halo{fill:none;stroke:#fff;stroke-linejoin:round;stroke-linecap:round;opacity:.8}" +
+    ".tct-wrap .r.sel .halo{stroke:#3af}.tct-wrap .r.dim{opacity:.35}" +
     ".tct-wrap .lbl rect{stroke:#000;stroke-width:1}.tct-wrap .lbl text{font:bold 9px Tahoma,Arial;text-anchor:middle;fill:#000}" +
     ".tct-wrap .grd{font:bold 8px Tahoma,Arial;text-anchor:middle;fill:#000;stroke:#fff;stroke-width:2px;paint-order:stroke}" +
     ".tct-info{padding:6px 10px;background:#fff;color:#222;min-height:20px;font-size:13px}" +
@@ -63,7 +63,7 @@ SCRIPT = r"""
     if (filter === "todo") return !!r.popular && r.sent !== "sent";
     return true;
   }
-  function lineWidth(r) { return r.pop == null ? 3 : 1.5 + 5.5 * Math.min(100, r.pop) / 100; }   // grosor = popularidad
+  function lineWidth(r) { return r.pop == null ? 3 : 1.5 + 8.5 * Math.min(100, r.pop) / 100; }   // grosor = popularidad
 
   function el(tag, attrs, children) {
     var e = document.createElement(tag);
@@ -90,8 +90,9 @@ SCRIPT = r"""
       var color = COLORS[r.sent || "none"] || COLORS.none, lw = lineWidth(r);
       var pts = r.points.map(function (p) { return p.x + "," + p.y; }).join(" ");
       var g = svgEl("g", { class: "r" });
-      g.appendChild(svgEl("polyline", { class: "halo", points: pts, "stroke-width": lw + 2 }));
-      var ln = svgEl("polyline", { class: "ln", points: pts, stroke: color, "stroke-width": lw });
+      // El grosor va en style: un stroke-width de CSS pisaría el atributo.
+      g.appendChild(svgEl("polyline", { class: "halo", points: pts, style: "stroke-width:" + (lw + 2) }));
+      var ln = svgEl("polyline", { class: "ln", points: pts, stroke: color, style: "stroke-width:" + lw });
       if (r.sent === "maybe") ln.setAttribute("stroke-dasharray", "6 3");
       g.appendChild(ln);
       r.points.forEach(function (p) {
