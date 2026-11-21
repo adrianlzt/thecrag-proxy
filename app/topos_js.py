@@ -7,7 +7,7 @@
 Pide `/_proxy/topos` al origen del propio script y pinta cada croquis: foto de theCrag con las líneas encima (SVG con el
 mismo sistema de coordenadas que `data-topodata`), número y grado de cada vía, en verde las encadenadas según 8a.nu
 (ámbar con «?» si solo coincide el nombre en otra escuela), naranja las demás. Al tocar una vía se resalta y se ve su
-nombre; el botón ⛶ pone el croquis a pantalla completa con pellizco para ampliar y arrastre para mover. Si no
+nombre; el botón de las líneas las oculta para ver la roca y el ⛶ pone el croquis a pantalla completa con pellizco para ampliar y arrastre para mover. Si no
 encuentra la escuela en theCrag, deja pegar la URL de theCrag (`opts.onManual(path)` avisa a la web que lo incrusta
 por si quiere guardarla; el servidor también la recuerda).
 """
@@ -46,8 +46,10 @@ SCRIPT = r"""
     ".tct-log{display:inline-block;margin:6px 0 2px;padding:4px 10px;border-radius:14px;background:#7b1fa2;color:#fff!important;text-decoration:none;font-weight:600}" +
     ".tct-msg{padding:10px;background:#fff8e1;border:1px solid #f0d080;border-radius:6px}" +
     ".tct-msg input{width:100%;box-sizing:border-box;margin:6px 0;padding:6px;font-size:14px}" +
-    ".tct-topo:fullscreen{display:block;overflow:auto;background:#000;color:#ddd;touch-action:pan-y}.tct-topo:fullscreen .tct-head{background:#222;color:#ddd}" +
-    ".tct-topo:fullscreen .tct-wrap .zoom{transform-origin:0 0}";
+    ".tct-topo:fullscreen{display:block;overflow:auto;background:#000;touch-action:pan-y}.tct-topo:fullscreen .tct-head{background:#222;color:#ddd}" +
+    ".tct-topo:fullscreen .tct-wrap .zoom{transform-origin:0 0}" +
+    ".tct-head button svg{display:block;width:16px;height:16px}.tct-head button.tct-lines.hid{background:#ddd}.tct-head button.tct-lines .x{display:none}.tct-head button.tct-lines.hid .x{display:inline}" +
+    ".tct-topo.nolines .tct-wrap svg{visibility:hidden}";
   var EIGHT = /(^|\.)8a\./.test(location.hostname) ? location.origin : "https://www.8a.nu";
   var COLORS = { sent: "#1fbf3f", maybe: "#e6a700", none: "#ff8c1a" };
   var FILTERS = [["all", "Todas"], ["pop", "Populares"], ["sent", "Encadenadas"], ["todo", "Populares pendientes"]];
@@ -169,8 +171,17 @@ SCRIPT = r"""
     zoom.style.aspectRatio = w + " / " + h;   // el hueco de la foto, aunque tarde en cargar
     var wrap = el("div", { class: "tct-wrap" }, [zoom]);
     var fsBtn = el("button", { type: "button", title: "Pantalla completa", text: "⛶" });
-    var head = el("div", { class: "tct-head" }, [el("span", { text: t.heading || "" }), el("span", { class: "sp" }), el("span", { text: t.routes.length + " vías", style: "font-weight:normal;color:#666" }), fsBtn]);
+    // Ocultar/mostrar las líneas para ver la roca (también a pantalla completa).
+    var linesBtn = el("button", { type: "button", class: "tct-lines", title: "Ocultar líneas", "aria-pressed": "false" });
+    linesBtn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,14 6,9 5,6 9,2"/><polyline points="10,14 11,8 13,4"/><line class="x" x1="2" y1="2" x2="14" y2="14" stroke="#c00" stroke-width="2"/></svg>';
+    var head = el("div", { class: "tct-head" }, [el("span", { text: t.heading || "" }), el("span", { class: "sp" }), el("span", { text: t.routes.length + " vías", style: "font-weight:normal;color:#666" }), linesBtn, fsBtn]);
     var card = el("div", { class: "tct-topo" }, [head, wrap, info, list]);
+    linesBtn.addEventListener("click", function () {
+      var hid = card.classList.toggle("nolines");
+      linesBtn.classList.toggle("hid", hid);
+      linesBtn.title = hid ? "Mostrar líneas" : "Ocultar líneas";
+      linesBtn.setAttribute("aria-pressed", String(hid));
+    });
     fsBtn.addEventListener("click", function () {
       if (document.fullscreenElement === card) document.exitFullscreen();
       else if (card.requestFullscreen) card.requestFullscreen();
