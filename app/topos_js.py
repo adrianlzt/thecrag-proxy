@@ -43,10 +43,12 @@ SCRIPT = r"""
     ".tct-bar{position:sticky;top:0;z-index:2;display:flex;gap:6px;flex-wrap:wrap;padding:6px 0;background:#fff}" +
     ".tct-bar button{border:1px solid #bbb;background:#fff;border-radius:14px;padding:3px 10px;font-size:13px;cursor:pointer}.tct-bar button.on{background:#1f9d3a;border-color:#1f9d3a;color:#fff}" +
     ".tct-wrap .r.off{opacity:.18}.tct-list li.off{display:none}.tct-list .asc{min-width:44px;text-align:right;color:#666;font-size:12px}" +
+    ".tct-log{display:inline-block;margin:6px 0 2px;padding:4px 10px;border-radius:14px;background:#7b1fa2;color:#fff!important;text-decoration:none;font-weight:600}" +
     ".tct-msg{padding:10px;background:#fff8e1;border:1px solid #f0d080;border-radius:6px}" +
     ".tct-msg input{width:100%;box-sizing:border-box;margin:6px 0;padding:6px;font-size:14px}" +
     ".tct-topo:fullscreen{display:block;overflow:auto;background:#000;color:#ddd;touch-action:pan-y}.tct-topo:fullscreen .tct-head{background:#222;color:#ddd}" +
     ".tct-topo:fullscreen .tct-wrap .zoom{transform-origin:0 0}";
+  var EIGHT = /(^|\.)8a\./.test(location.hostname) ? location.origin : "https://www.8a.nu";
   var COLORS = { sent: "#1fbf3f", maybe: "#e6a700", none: "#ff8c1a" };
   var FILTERS = [["all", "Todas"], ["pop", "Populares"], ["sent", "Encadenadas"], ["todo", "Populares pendientes"]];
   var filter = (function () { try { return localStorage.getItem("tct-filter") || "all"; } catch (e) { return "all"; } })();
@@ -157,7 +159,10 @@ SCRIPT = r"""
       info.appendChild(document.createTextNode((r.grade || "") + (r.stars ? " " + r.stars : "") + (r.style ? " · " + r.style : "") + (r.in8a === false ? " · no está en 8a.nu" : r.ascents != null ? " · " + r.ascents + " ascensiones" + (r.in8a ? " en 8a.nu" : "") : "") +
         (r.ascents_tc != null ? " (theCrag: " + r.ascents_tc + ")" : "")));
       if (r.sent_info) info.appendChild(document.createTextNode(" · 8a.nu: " + esc(r.sent_info.crag) + " " + esc(r.sent_info.grade) + (r.sent_info.date ? ", " + r.sent_info.date : "")));
+      if (r.bolts || r.height) info.appendChild(document.createTextNode(" · " + [r.height, r.bolts ? r.bolts + " chapas" : ""].filter(Boolean).join(", ")));
       if (r.url) { info.appendChild(document.createTextNode(" ")); info.appendChild(el("a", { href: ORIGIN + r.url, target: "_blank", text: "theCrag ↗" })); }
+      // Apuntarla en 8a.nu: su página de vía (ahí está «Añadir ascensión»), en el mismo 8a desde el que se mira si es un proxy.
+      if (r.url8a) info.appendChild(el("a", { class: "tct-log", href: EIGHT + r.url8a, text: "Apuntar en 8a.nu" }));
     }
     svg.addEventListener("click", function () { groups.forEach(function (x) { x.classList.remove("sel", "dim"); }); t.routes.forEach(function (x) { if (x._li) x._li.classList.remove("sel"); }); info.textContent = ""; });
     var zoom = el("div", { class: "zoom" }, [img, svg]);

@@ -53,12 +53,14 @@ async def find_crag(client: httpx.AsyncClient, country: str, area: str, crag: st
 
 
 async def routes(client: httpx.AsyncClient, db, country: str, area: str, crag: str, crag_slug: str = "") -> dict | None:
-    """{crag: {name, slug, url, totalAscents}, routes: [{name, grade, ascents}]} o None si 8a.nu no la tiene."""
+    """{crag: {name, slug, url, totalAscents}, routes: [{name, grade, ascents, sector, path}]} o None si 8a.nu no la tiene."""
     key = "|".join((_slug(country), norm(area), norm(crag), crag_slug))
     db.execute("create table if not exists eight (key text primary key, at real, data text)")
     row = db.execute("select at, data from eight where key=?", (key,)).fetchone()
     if row and time.time() - row[0] < TTL:
-        return json.loads(row[1])
+        cached = json.loads(row[1])
+        if not cached or not cached.get("routes") or "path" in cached["routes"][0]:  # las de antes no traen la ruta
+            return cached
     try:
         if crag_slug:
             hit = {"cragSlug": crag_slug, "cragName": crag, "countrySlug": _slug(country), "category": 0}
@@ -79,7 +81,9 @@ async def routes(client: httpx.AsyncClient, db, country: str, area: str, crag: s
                 "crag": {"name": hit.get("cragName"), "slug": hit["cragSlug"], "url": f"{BASE}/crags/{cat}/{cs}/{hit['cragSlug']}",
                          "totalAscents": sum(i.get("totalAscents") or 0 for i in items)},
                 "routes": [{"name": i.get("zlaggableName") or "", "grade": i.get("difficulty") or "", "ascents": i.get("totalAscents") or 0,
-                            "sector": i.get("sectorName") or ""} for i in items],
+                            "sector": i.get("sectorName") or "",
+                            "path": f"/crags/{cat}/{cs}/{hit['cragSlug']}/sectors/{i.get('sectorSlug')}/routes/{i.get('zlaggableSlug')}"
+                            if i.get("sectorSlug") and i.get("zlaggableSlug") else ""} for i in items],
             }
     except (httpx.HTTPError, ValueError) as e:
         log.warning("8a.nu no responde para «%s»: %s", crag, e)
@@ -112,6 +116,9 @@ def apply(topos: list[dict], eight: dict | None) -> bool:
                 cands = close
             if cands:
                 found[id(r)] = sum(c["ascents"] for c in cands)
+                best = max(cands, key=lambda c: c["ascents"])
+                if best.get("path"):
+                    r["url8a"] = best["path"]  # su página en 8a.nu, para apuntarla
     if not found:
         return False
     top = max(found.values()) or 1

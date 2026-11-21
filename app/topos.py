@@ -36,7 +36,7 @@ MAX_PAGES = int(os.environ.get("TOPOS_MAX_PAGES", "20"))
 COOLDOWN = float(os.environ.get("TOPOS_COOLDOWN", "600"))  # tras un corte de theCrag, ni una petición en este tiempo
 TTL = float(os.environ.get("TOPOS_TTL", "72")) * 3600
 CHILD_MAX = int(os.environ.get("TOPOS_CHILD_MAX", "8"))
-CACHE_V = 3  # formato de la caché de croquis: subir cuando cambie parse_topos  # sectores hijos que se miran si la escuela no tiene croquis
+CACHE_V = 4  # formato de la caché de croquis: subir cuando cambie parse_topos  # sectores hijos que se miran si la escuela no tiene croquis
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -95,9 +95,28 @@ def parse_pops(page_html: str) -> dict[str, tuple[int, int]]:
     return {rid: (int(pop), int(asc.replace(",", ""))) for rid, pop, asc in _POP.findall(page_html)}
 
 
+# Cada fila de vía lleva sus datos en JSON: «data-route-tick="{&quot;bolts&quot;:16,…,&quot;displayHeight&quot;:[35,&quot;m&quot;],…,&quot;id&quot;:…}"».
+_TICK = re.compile(r'data-route-tick="([^"]+)"')
+
+
+def parse_ticks(page_html: str) -> dict[str, dict]:
+    """{id de vía: {"bolts": 16, "height": "35m"}} con lo que theCrag tenga de cada una."""
+    out = {}
+    for m in _TICK.finditer(page_html):
+        try:
+            d = json.loads(html.unescape(m.group(1)))
+        except ValueError:
+            continue
+        h = d.get("displayHeight")
+        out[str(d.get("id"))] = {"bolts": d.get("bolts") if isinstance(d.get("bolts"), int) else None,
+                                 "height": f"{h[0]}{h[1]}" if isinstance(h, list) and len(h) == 2 and h[0] else ""}
+    return out
+
+
 def parse_topos(page_html: str, page_path: str) -> list[dict]:
     topos = []
     pops = parse_pops(page_html)
+    ticks_ = parse_ticks(page_html)
     for m in _TOPO.finditer(page_html):
         attrs = dict(_ATTR.findall(m.group(1)))
         try:
@@ -131,6 +150,8 @@ def parse_topos(page_html: str, page_path: str) -> list[dict]:
                     "pop": pop[0] if pop else None, "ascents": pop[1] if pop else None,
                     "grade": convert_grade_text(str(r.get("grade") or "")), "stars": r.get("stars") or "",
                     "style": r.get("style") or "", "url": r.get("url") or "", "points": pts,
+                    "bolts": (ticks_.get(str(r.get("id"))) or {}).get("bolts"),
+                    "height": (ticks_.get(str(r.get("id"))) or {}).get("height") or "",
                 })
         topos.append({
             "tid": attrs.get("tid"), "heading": html.unescape(heads[-1]) if heads else "",
